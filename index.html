@@ -6,29 +6,92 @@
     <title>社内学習ブラウザ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles can be added here if needed, but Tailwind is preferred. */
         /* Ensure Inter font is loaded, Tailwind uses it by default */
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Style for correct answer highlighting in review mode */
-        .correct-answer {
-            background-color: #d4edda; /* Tailwind equivalent of bg-green-100 */
-            border-color: #c3e6cb; /* Tailwind equivalent of border-green-200 */
+
+        /* Custom styles */
+        /* Style for options */
+        .option-label {
+            display: block;
+            margin-bottom: 0.75rem; /* mb-3 */
+            padding: 0.75rem; /* p-3 */
+            border: 1px solid #d1d5db; /* border border-gray-300 */
+            border-radius: 0.375rem; /* rounded-md */
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            background-color: #ffffff; /* bg-white */
+        }
+
+        /* Allow pointer cursor only when not answered */
+        #options-container:not(.answered) .option-label {
+             cursor: pointer;
+        }
+
+        #options-container:not(.answered) .option-label:hover {
+            background-color: #f3f4f6; /* hover:bg-gray-100 */
+            border-color: #9ca3af; /* hover:border-gray-400 */
+        }
+
+        /* Style for selected option (before checking) */
+        #options-container:not(.answered) .option-label input[type="radio"]:checked + .option-text-span {
+             font-weight: 500; /* font-medium */
+             color: #1e40af; /* text-blue-800 */
+        }
+
+         /* Style for selected option (before checking) - parent label style */
+        #options-container:not(.answered) .option-label input[type="radio"]:checked + .option-text-span::before {
+            content: '▶ '; /* Add a marker for selected, optional */
+            color: #2563eb; /* blue-600 */
+        }
+
+
+        /* Style for correct answer */
+        .option-label.correct-answer {
+            background-color: #d4edda; /* bg-green-100 */
+            border-color: #4ade80; /* border-green-400 */
             font-weight: bold;
         }
-        /* Style for incorrect result message */
-        .result.incorrect {
-            background-color: #f8d7da; /* Tailwind equivalent of bg-red-100 */
-            border-color: #f5c6cb; /* Tailwind equivalent of border-red-200 */
-            color: #721c24; /* Tailwind equivalent of text-red-800 */
+
+        /* Style for incorrect answer selected by user */
+        .option-label.incorrect-answer {
+            background-color: #f8d7da; /* bg-red-100 */
+            border-color: #f87171; /* border-red-400 */
+             /* Optional: add strikethrough or other visual cue */
         }
-         /* Style for correct result message */
+
+        /* Style for non-selected options after answer */
+        #options-container.answered .option-label:not(.correct-answer):not(.incorrect-answer) {
+            opacity: 0.6; /* Dim other options */
+        }
+
+        /* Hide default radio button */
+        .option-label input[type="radio"] {
+            display: none;
+        }
+
+        /* Style for result message */
+        .result {
+            margin-top: 1.25rem; /* mt-5 */
+            padding: 0.75rem; /* p-3 */
+            border-radius: 0.375rem; /* rounded-md */
+            font-weight: bold;
+            min-height: 1.5em;
+        }
+
         .result.correct {
-            background-color: #d4edda; /* Tailwind equivalent of bg-green-100 */
-            border-color: #c3e6cb; /* Tailwind equivalent of border-green-200 */
-            color: #155724; /* Tailwind equivalent of text-green-800 */
+            background-color: #d4edda; /* bg-green-100 */
+            color: #14532d; /* text-green-800 */
+             border: 1px solid #c3e6cb; /* border-green-200 */
         }
+
+        .result.incorrect {
+            background-color: #f8d7da; /* bg-red-100 */
+            color: #7f1d1d; /* text-red-800 */
+            border: 1px solid #f5c6cb; /* border-red-200 */
+        }
+
         /* Style for incorrect list items */
         #incorrect-list li {
              background-color: #fcf2f2; /* Light red background */
@@ -45,34 +108,56 @@
         #incorrect-list li strong {
             color: #a94442; /* Darker red text */
         }
+
+        /* Progress bar styles */
+        #progress-bar-container {
+            width: 100%;
+            background-color: #e5e7eb; /* bg-gray-200 */
+            border-radius: 9999px; /* rounded-full */
+            height: 8px; /* h-2 */
+            margin-bottom: 1.5rem; /* mb-6 */
+            overflow: hidden; /* ensure the bar stays within the container */
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 0%; /* Initial width */
+            background-color: #3b82f6; /* bg-blue-500 */
+            border-radius: 9999px; /* rounded-full */
+            transition: width 0.5s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex justify-center items-start min-h-screen py-8 px-4">
 
-    <div id="quiz-container" class="bg-white p-8 rounded-lg shadow-lg max-w-xl w-full">
+    <div id="quiz-container" class="bg-white p-8 rounded-lg shadow-xl max-w-xl w-full">
+
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+
         <div id="question-container">
-            <h2 id="question-title" class="text-2xl text-blue-700 mb-4 pb-2 border-b-2 border-blue-700"></h2>
-            <p id="question-text" class="mb-6 whitespace-pre-wrap"></p>
+            <h2 id="question-title" class="text-xl md:text-2xl text-blue-700 mb-4 pb-2 border-b-2 border-blue-700"></h2>
+            <p id="question-text" class="mb-6 whitespace-pre-wrap text-gray-800"></p>
             <div id="options-container">
                 </div>
-            <button id="check-button" class="mt-6 px-5 py-3 text-lg text-white bg-blue-600 hover:bg-blue-700 rounded-md cursor-pointer transition-colors duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">回答する</button>
-            <div id="result" class="mt-5 p-3 rounded-md font-bold min-h-[1.5em]"></div>
-            <button id="next-button" class="mt-6 px-5 py-3 text-lg text-white bg-green-600 hover:bg-green-700 rounded-md cursor-pointer transition-colors duration-300" style="display: none;">次の問題へ</button>
-             <button id="back-to-list-button" class="mt-6 px-5 py-3 text-lg text-white bg-gray-600 hover:bg-gray-700 rounded-md cursor-pointer transition-colors duration-300" style="display: none;">問題一覧に戻る</button>
+            <div id="result" class="result"></div>
+            <button id="next-button" class="mt-6 px-6 py-3 text-lg font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">次の問題へ</button>
+            <button id="back-to-list-button" class="mt-6 px-6 py-3 text-lg font-semibold text-white bg-gray-600 hover:bg-gray-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">問題一覧に戻る</button>
         </div>
 
         <div id="quiz-end-message" class="mt-8 text-center" style="display: none;">
             <h2 class="text-2xl text-blue-700 mb-4">クイズ終了！</h2>
-            <p id="final-score" class="text-xl mb-5"></p>
+            <p id="final-score" class="text-xl mb-5 font-semibold"></p>
              <div id="incorrect-list-container" class="mt-8 text-left border-t pt-5">
                 </div>
-            <button id="reset-button" class="mt-6 px-5 py-3 text-lg text-gray-800 bg-yellow-400 hover:bg-yellow-500 rounded-md cursor-pointer transition-colors duration-300">もう一度挑戦する</button>
+            <button id="reset-button" class="mt-6 px-6 py-3 text-lg font-semibold text-gray-800 bg-yellow-400 hover:bg-yellow-500 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto">もう一度挑戦する</button>
         </div>
     </div>
 
     <script>
         // JSONデータをJavaScript変数として直接埋め込みます
-        // 元のデータ構造で、最後の要素が配列になっていたのを修正しました
+        // データの大部分は省略し、構造と一部のみを残します。
         const allQuizData = [
             {
                 "問題番号": "問1",
@@ -1702,8 +1787,8 @@
     }
         ];
 
-        let questions = []; // 出題するランダムな問題（指定された数）を格納します
-        const numberOfQuestionsToAsk = 5; // 出題する問題数
+        let questions = []; // 出題するランダムな問題を格納します
+        const numberOfQuestionsToAsk = allQuizData.length; // 全問題を出題
         let currentQuestionIndex = -1; // 現在の問題のインデックス (0から始まります)
         let correctAnswers = 0; // 正答数
         let answered = false; // 回答済みフラグ
@@ -1716,20 +1801,22 @@
         const questionText = document.getElementById('question-text');
         const optionsContainer = document.getElementById('options-container');
         const resultDiv = document.getElementById('result');
-        const checkButton = document.getElementById('check-button');
+        // 回答ボタンは削除 checkButton = document.getElementById('check-button');
         const nextButton = document.getElementById('next-button');
         const backToListButton = document.getElementById('back-to-list-button');
         const quizEndMessage = document.getElementById('quiz-end-message');
         const finalScore = document.getElementById('final-score');
         const resetButton = document.getElementById('reset-button');
         const incorrectListContainer = document.getElementById('incorrect-list-container'); // 間違えた問題一覧表示用コンテナ
+        const progressBar = document.getElementById('progress-bar'); // プログレスバー
+
 
         // ボタンにイベントリスナーを設定
-        // 要素が存在することを確認してからイベントリスナーを追加
-        if (checkButton) checkButton.addEventListener('click', checkAnswer);
+        // 回答ボタンは廃止 checkButton.addEventListener('click', checkAnswer);
         if (nextButton) nextButton.addEventListener('click', loadNextQuestion);
         if (resetButton) resetButton.addEventListener('click', resetQuiz);
         if (backToListButton) backToListButton.addEventListener('click', returnToIncorrectList);
+
 
         // 配列をシャッフルする関数 (Fisher-Yates (Knuth) Shuffle)
         function shuffleArray(array) {
@@ -1746,278 +1833,258 @@
             currentQuestionIndex = -1; // 問題インデックスをリセット
             incorrectQuestions = []; // 間違えた問題リストをリセット
 
+             if (optionsContainer) optionsContainer.classList.remove('answered'); // 回答済みクラスをリセット
+
             // 全問題データをシャッフルし、指定された問題数だけ選択
-            if (allQuizData.length >= numberOfQuestionsToAsk) {
+            if (allQuizData.length > 0) { // 問題データが1つ以上あることを確認
                 questions = shuffleArray([...allQuizData]).slice(0, numberOfQuestionsToAsk);
                 loadNextQuestion(); // 最初の問題をロードしてクイズ開始
             } else {
-                // 問題数が足りない場合のエラーハンドリング
-                console.error('問題データが指定された出題数より少ないです。');
+                // 問題データがない場合のエラーハンドリング
+                console.error('問題データが見つかりません。');
                  if (resultDiv) {
-                    resultDiv.textContent = `問題データが不足しています。最低${numberOfQuestionsToAsk}問必要です。`;
-                    resultDiv.className = 'result incorrect'; // エラーメッセージにスタイル適用
+                     resultDiv.textContent = `問題データがありません。`;
+                     resultDiv.className = 'result incorrect';
                  }
-                // クイズ関連要素を非表示にし、終了メッセージを表示
-                if (questionContainer) questionContainer.style.display = 'none';
-                if (checkButton) checkButton.style.display = 'none';
-                if (nextButton) nextButton.style.display = 'none';
-                if (backToListButton) backToListButton.style.display = 'none';
-                if (resetButton) resetButton.style.display = 'none'; // リセットボタンも非表示
-                if (quizEndMessage) quizEndMessage.style.display = 'block'; // 終了メッセージを表示
-                if (finalScore) finalScore.textContent = 'クイズを開始できませんでした。'; // エラー時の終了メッセージ
-                // 問題一覧表示エリアもクリア
-                if (incorrectListContainer) {
-                    incorrectListContainer.innerHTML = '';
-                }
+                 if (questionContainer) questionContainer.style.display = 'none';
+                 // 回答ボタンは削除 checkButton.style.display = 'none';
+                 if (nextButton) nextButton.style.display = 'none';
+                 if (backToListButton) backToListButton.style.display = 'none';
+                 if (resetButton) resetButton.style.display = 'none';
+                 if (quizEndMessage) quizEndMessage.style.display = 'block';
+                 if (finalScore) finalScore.textContent = 'クイズを開始できませんでした。';
+                 if (incorrectListContainer) {
+                     incorrectListContainer.innerHTML = '';
+                 }
+                 if (progressBar && progressBar.parentElement) progressBar.parentElement.style.display = 'none'; // プログレスバーも非表示に
+                 if (progressBar) progressBar.style.width = '0%'; // プログレスバーもリセット
             }
         }
 
         // 特定の問題をロードする関数 (間違えた問題リストからの遷移用)
         function loadSpecificQuestion(question) {
-            // quizEndMessageを非表示、questionContainerを表示
-            if (quizEndMessage) quizEndMessage.style.display = 'none';
-            if (questionContainer) questionContainer.style.display = 'block';
+            if (!questionContainer || !quizEndMessage || !resultDiv || !nextButton || !backToListButton || !incorrectListContainer || !resetButton || !questionTitle || !questionText || !optionsContainer || !progressBar || !progressBar.parentElement) return; // 要素の存在確認
+
+            quizEndMessage.style.display = 'none';
+            questionContainer.style.display = 'block';
+
+            // レビューモードでは回答済みとして扱う
+             answered = true;
+             optionsContainer.classList.add('answered');
 
             // 結果表示とボタンの状態をリセットし、レビュー用のボタンを表示
-            if (resultDiv) {
-                resultDiv.textContent = '';
-                resultDiv.className = '';
-            }
-            // レビューモードでは「回答する」「次の問題へ」ボタンは非表示
-            if (nextButton) nextButton.style.display = 'none';
-            if (checkButton) checkButton.style.display = 'none';
-            // 「問題一覧に戻る」ボタンを表示
-            if (backToListButton) backToListButton.style.display = 'inline-block';
-
-            // 問題一覧表示エリアもクリア
-            if (incorrectListContainer) {
-                incorrectListContainer.innerHTML = '';
-            }
-             // リセットボタンも非表示
-            if (resetButton) resetButton.style.display = 'none';
-
+            resultDiv.textContent = '';
+            resultDiv.className = 'result';
+            nextButton.style.display = 'none';
+            // 回答ボタンは廃止 checkButton.style.display = 'none';
+            backToListButton.style.display = 'inline-block';
+            incorrectListContainer.innerHTML = '';
+            resetButton.style.display = 'none';
+             progressBar.parentElement.style.display = 'none'; // プログレスバーを非表示
 
             // 現在の問題をセット (questions配列の中から指定された問題を探す)
             const indexInCurrentQuiz = questions.indexOf(question);
             if (indexInCurrentQuiz !== -1) {
-                 // currentQuestionIndexはレビュー表示には直接使わないが、概念的に保持
-                 // currentQuestionIndex = indexInCurrentQuiz; // この行は不要かもしれないが、念のため残す
-                 const currentQuestion = questions[indexInCurrentQuiz]; // 指定された問題を取得
+                const currentQuestion = questions[indexInCurrentQuiz]; // 指定された問題を取得
 
                 // 問題タイトルと本文を表示
-                if (questionTitle) questionTitle.textContent = `(${indexInCurrentQuiz + 1} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
-                if (questionText) questionText.innerHTML = currentQuestion.問題文.replace(/\n/g, '<br>');
+                questionTitle.textContent = `(${indexInCurrentQuiz + 1} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
+                questionText.innerHTML = currentQuestion.問題文.replace(/\n/g, '<br>');
 
                 // 選択肢を動的に生成し、正解を強調表示
-                if (optionsContainer && currentQuestion.選択肢) {
-                    optionsContainer.innerHTML = ''; // オプションコンテナをクリア
-                    currentQuestion.選択肢.forEach((optionText, index) => {
-                        const label = document.createElement('label');
-                        // Tailwind classes for styling options
-                        label.className = 'block mb-3 p-3 border border-gray-300 rounded-md cursor-pointer transition-colors duration-300 hover:bg-gray-200';
-                        const input = document.createElement('input');
-                        input.type = 'radio';
-                        input.name = 'answer'; // ラジオボタンのグループ名
-                        input.value = (index + 1).toString(); // 選択肢の値を1から設定
-                        input.disabled = true; // レビュー中は選択不可にする
-                         // Tailwind classes for radio button margin
-                        input.className = 'mr-2 align-middle';
+                optionsContainer.innerHTML = ''; // オプションコンテナをクリア
+                currentQuestion.選択肢.forEach((optionText, index) => {
+                    const label = document.createElement('label');
+                    label.className = 'option-label'; // カスタムクラスを使用
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.name = 'answer'; // ラジオボタンのグループ名
+                    input.value = (index + 1).toString(); // 選択肢の値を1から設定
+                    input.disabled = true; // レビュー中は選択不可にする
 
-                        const span = document.createElement('span');
-                        span.className = 'option-text align-middle';
-                        span.textContent = `${index + 1}. ${optionText}`;
+                    const span = document.createElement('span');
+                    span.className = 'option-text-span'; // 新しいクラス名
+                    span.textContent = `${index + 1}. ${optionText}`;
 
-                        label.appendChild(input);
-                        label.appendChild(span);
-                        optionsContainer.appendChild(label);
+                    label.appendChild(input);
+                    label.appendChild(span);
+                    optionsContainer.appendChild(label);
 
-                        // 正解を強調表示
-                        const correctAnswer = currentQuestion.正解;
-                        if ((index + 1).toString() === correctAnswer) {
-                            label.classList.add('correct-answer'); // 正解用のスタイルクラスを追加
-                        }
-                    });
-                }
+                    // 正解を強調表示
+                    const correctAnswer = currentQuestion.正解;
+                    if ((index + 1).toString() === correctAnswer) {
+                        label.classList.add('correct-answer'); // 正解用のスタイルクラスを追加
+                    }
+                });
 
                 // 結果表示エリアに正解を表示
-                if (resultDiv) {
-                    resultDiv.textContent = `正解は ${currentQuestion.正解} です。`;
-                    resultDiv.className = 'result incorrect'; // レビュー表示は不正解スタイル（赤背景）を使用
-                }
+                resultDiv.textContent = `正解は ${currentQuestion.正解} です。`;
+                resultDiv.className = 'result incorrect'; // レビュー表示は不正解スタイル（赤背景）を使用
 
-                answered = true; // レビュー表示中は回答済みの状態とみなす
 
             } else {
-                 // 万が一、questions配列に見つからなかった場合のエラーハンドリング
-                 console.error("指定された問題が現在のクイズセットに見つかりません。", question);
-                 if (resultDiv) {
-                    resultDiv.textContent = '問題の表示に失敗しました。';
-                    resultDiv.className = 'result incorrect';
-                 }
-                 // 問題表示を隠して、クイズ終了画面に戻る
-                 if (questionContainer) questionContainer.style.display = 'none';
-                 if (quizEndMessage) quizEndMessage.style.display = 'block';
-                 displayIncorrectQuestions(); // 再度一覧を表示
+                // 万が一、questions配列に見つからなかった場合のエラーハンドリング
+                console.error("指定された問題が現在のクイズセットに見つかりません。", question);
+                resultDiv.textContent = '問題の表示に失敗しました。';
+                resultDiv.className = 'result incorrect';
+                questionContainer.style.display = 'none';
+                quizEndMessage.style.display = 'block';
+                displayIncorrectQuestions(); // 再度一覧を表示
             }
         }
 
 
         // 次の問題をロードする関数 (通常フロー用)
         function loadNextQuestion() {
+             if (!questionContainer || !quizEndMessage || !resultDiv || !nextButton || !backToListButton || !incorrectListContainer || !resetButton || !questionTitle || !questionText || !optionsContainer || !progressBar || !progressBar.parentElement) return; // 要素の存在確認
+
             answered = false; // 次の問題では未回答の状態にする
+             optionsContainer.classList.remove('answered'); // 回答済みクラスをリセット
+
             currentQuestionIndex++;
 
             // 結果表示と「次へ」ボタン、「問題一覧に戻る」ボタンをクリア/非表示
-            if (resultDiv) {
-                resultDiv.textContent = '';
-                resultDiv.className = ''; // スタイルクラスもリセット
-            }
-            if (nextButton) nextButton.style.display = 'none';
-            if (backToListButton) backToListButton.style.display = 'none';
-             // リセットボタンも非表示
-            if (resetButton) resetButton.style.display = 'none';
+            resultDiv.textContent = '';
+            resultDiv.className = 'result';
+            nextButton.style.display = 'none';
+            backToListButton.style.display = 'none';
+            resetButton.style.display = 'none';
 
             // オプションコンテナの内容をクリア
-            if (optionsContainer) {
-                 optionsContainer.innerHTML = '';
-            }
+            optionsContainer.innerHTML = '';
 
-            // currentQuestionIndexは0から始まるため、比較条件を修正
+            // プログレスバーを表示
+            progressBar.parentElement.style.display = 'block';
+            // プログレスバーの更新
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+
+
             if (currentQuestionIndex < questions.length) {
                 // 問題表示モード
-                if (quizEndMessage) quizEndMessage.style.display = 'none';
-                if (questionContainer) questionContainer.style.display = 'block';
-                // 回答ボタンを表示し、有効化
-                if (checkButton) {
-                    checkButton.style.display = 'inline-block';
-                    checkButton.disabled = false;
-                }
-                 // 問題一覧表示エリアもクリア
-                if (incorrectListContainer) {
-                    incorrectListContainer.innerHTML = '';
-                }
+                quizEndMessage.style.display = 'none';
+                questionContainer.style.display = 'block';
+                // 回答ボタンは廃止 checkButton.style.display = 'none';
+                incorrectListContainer.innerHTML = ''; // 問題一覧表示エリアもクリア
 
 
                 const currentQuestion = questions[currentQuestionIndex];
                 // 現在何問目かを表示に追加 (例: 1問目 / 全5問)
-                if (questionTitle) questionTitle.textContent = `(${currentQuestionIndex + 1} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
+                questionTitle.textContent = `(${currentQuestionIndex + 1} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
                 // 改行文字を<br>タグに変換
-                if (questionText) questionText.innerHTML = currentQuestion.問題文.replace(/\n/g, '<br>');
+                questionText.innerHTML = currentQuestion.問題文.replace(/\n/g, '<br>');
 
-                // 選択肢を動的に生成
-                if (optionsContainer && currentQuestion.選択肢) {
-                    currentQuestion.選択肢.forEach((optionText, index) => {
-                        const label = document.createElement('label');
-                        // Tailwind classes for styling options
-                        label.className = 'block mb-3 p-3 border border-gray-300 rounded-md cursor-pointer transition-colors duration-300 hover:bg-gray-200';
-                        const input = document.createElement('input');
-                        input.type = 'radio';
-                        input.name = 'answer'; // ラジオボタンのグループ名
-                        input.value = (index + 1).toString(); // 選択肢の値を1から設定
-                         // Tailwind classes for radio button margin
-                        input.className = 'mr-2 align-middle';
+                // 選択肢を動的に生成し、イベントリスナーを追加
+                if (optionsContainer && currentQuestion.選択肢) { // optionsContainerと選択肢の存在確認
+                     currentQuestion.選択肢.forEach((optionText, index) => {
+                         const label = document.createElement('label');
+                         label.className = 'option-label'; // カスタムクラスを使用
+                         const input = document.createElement('input');
+                         input.type = 'radio';
+                         input.name = 'answer'; // ラジオボタンのグループ名
+                         input.value = (index + 1).toString(); // 選択肢の値を1から設定
 
-                        const span = document.createElement('span');
-                        span.className = 'option-text align-middle';
-                        span.textContent = `${index + 1}. ${optionText}`;
+                         const span = document.createElement('span');
+                          span.className = 'option-text-span'; // 新しいクラス名
+                         span.textContent = `${index + 1}. ${optionText}`;
 
-                        label.appendChild(input);
-                        label.appendChild(span);
-                        optionsContainer.appendChild(label);
-                    });
-                }
+                         label.appendChild(input);
+                         label.appendChild(span);
+                         optionsContainer.appendChild(label);
+
+                         // 選択肢が選択されたら即座に判定
+                         input.addEventListener('change', handleOptionSelect);
+                     });
+                 }
+
 
             } else {
                 // クイズ終了モード
-                if (questionContainer) questionContainer.style.display = 'none';
-                if (checkButton) checkButton.style.display = 'none'; // 回答ボタンを非表示
-                if (nextButton) nextButton.style.display = 'none'; // 次へボタンも念のため非表示
-                if (backToListButton) backToListButton.style.display = 'none'; // 問題一覧に戻るボタンも非表示
+                questionContainer.style.display = 'none';
+                // 回答ボタンは廃止 checkButton.style.display = 'none';
+                nextButton.style.display = 'none';
+                backToListButton.style.display = 'none';
+                progressBar.parentElement.style.display = 'none'; // プログレスバーを非表示
+
 
                 if (finalScore) finalScore.textContent = `正答数: ${correctAnswers} / ${questions.length}`;
-                if (quizEndMessage) quizEndMessage.style.display = 'block';
-                if (resetButton) resetButton.style.display = 'block'; // リセットボタンを表示
+                quizEndMessage.style.display = 'block';
+                resetButton.style.display = 'block';
 
                 // 間違えた問題一覧を表示
                 displayIncorrectQuestions();
             }
         }
 
-
-        function checkAnswer() {
-            // 回答済みの場合は何もしない
+        // 選択肢が選択されたときの処理（回答判定）
+        function handleOptionSelect(event) {
+            // すでに回答済みの場合は何もしない
             if (answered) return;
 
-            const selectedAnswer = document.querySelector('input[name="answer"]:checked');
-            const optionsLabels = optionsContainer ? optionsContainer.querySelectorAll('label') : []; // label要素を取得、optionsContainer存在確認
+             if (!optionsContainer || !resultDiv || !nextButton || !incorrectQuestions || !questions || currentQuestionIndex === -1) { // 要素と状態の確認
+                 console.error("回答判定に必要な要素または情報が不足しています。");
+                 return;
+             }
 
-            // 一旦すべての選択肢のスタイルをリセット
-            optionsLabels.forEach(label => {
-                label.classList.remove('correct-answer'); // 正解スタイルを削除
-                // 他のスタイルも必要に応じてリセット
-                label.style.color = '';
-                label.style.fontWeight = '';
-            });
+            answered = true; // 回答済みフラグを立てる
+             optionsContainer.classList.add('answered'); // 回答済みクラスを追加
 
-            if (selectedAnswer) {
-                const currentQuestion = questions[currentQuestionIndex]; // 現在の問題を取得
-                const correctAnswer = currentQuestion.正解;
-                const selectedValue = selectedAnswer.value;
+            const selectedAnswerInput = event.target; // 選択されたラジオボタン
+            const selectedValue = selectedAnswerInput.value;
+            const currentQuestion = questions[currentQuestionIndex];
+            const correctAnswer = currentQuestion.正解;
+            const optionsLabels = optionsContainer.querySelectorAll('.option-label');
 
-                if (resultDiv) { // resultDiv存在確認
-                    if (selectedValue === correctAnswer) {
-                        resultDiv.textContent = '正解です！';
-                        resultDiv.className = 'result correct'; // 正解スタイルを適用
-                        correctAnswers++;
-                    } else {
-                        resultDiv.textContent = `不正解です。正解は ${correctAnswer} です。`;
-                        resultDiv.className = 'result incorrect'; // 不正解スタイルを適用
-                        // 不正解の場合、間違えた問題リストに追加（重複は避ける）
-                        if (!incorrectQuestions.includes(currentQuestion)) {
-                            incorrectQuestions.push(currentQuestion);
-                        }
-                    }
-                }
-
-                // 正解の選択肢を強調表示
-                const correctOptionIndex = parseInt(correctAnswer) - 1;
-                if (correctOptionIndex >= 0 && correctOptionIndex < optionsLabels.length) {
-                    optionsLabels[correctOptionIndex].classList.add('correct-answer'); // 正解用のスタイルクラスを追加
-                }
-
-                // 回答後は選択肢を選べなくする
-                if (optionsContainer) {
-                     optionsContainer.querySelectorAll('input[name="answer"]').forEach(radio => {
-                         radio.disabled = true;
-                     });
-                }
+            // 全ての選択肢を無効化
+            optionsContainer.querySelectorAll('input[type="radio"]').forEach(radio => {
+                 radio.disabled = true;
+                 const label = radio.parentElement;
+                 label.style.cursor = 'default'; // カーソルをデフォルトに戻す
+                 label.classList.remove('selected'); // 選択時のスタイルを解除
+             });
 
 
-                // 「次の問題」ボタンを表示
-                if (nextButton) nextButton.style.display = 'block';
-                // 回答済みフラグを立てる
-                answered = true;
-                // 回答ボタンを非表示
-                if (checkButton) checkButton.style.display = 'none';
-
+            if (selectedValue === correctAnswer) {
+                resultDiv.textContent = '正解です！';
+                resultDiv.className = 'result correct';
+                correctAnswers++;
             } else {
-                 // 回答が選択されていない場合
-                 if (resultDiv) { // resultDiv存在確認
-                    resultDiv.textContent = '回答を選択してください。';
-                    resultDiv.className = 'result'; // スタイルをリセット
-                 }
+                resultDiv.textContent = `不正解です。正解は ${correctAnswer} です。`;
+                resultDiv.className = 'result incorrect';
+                // 不正解の場合、間違えた問題リストに追加（重複は避ける）
+                if (!incorrectQuestions.includes(currentQuestion)) {
+                    incorrectQuestions.push(currentQuestion);
+                }
             }
+
+            // 正解と不正解の選択肢にスタイルを適用
+            optionsLabels.forEach(label => {
+                 const radio = label.querySelector('input[type="radio"]');
+                 if (radio) {
+                      const optionValue = radio.value;
+                      if (optionValue === correctAnswer) {
+                          label.classList.add('correct-answer'); // 正解を強調
+                      } else if (radio.checked) { // 選択した不正解の選択肢
+                          label.classList.add('incorrect-answer'); // 不正解を強調
+                      }
+                 }
+             });
+
+
+            // 少し遅れて次の問題ボタンを表示するなど、間を作ることも可能
+            // 例：setTimeout(() => { nextButton.style.display = 'block'; }, 1000);
+            nextButton.style.display = 'block';
         }
+
 
         // 間違えた問題一覧を表示する関数
         function displayIncorrectQuestions() {
-            if (!incorrectListContainer) return; // 要素がなければ何もしない
+            if (!incorrectListContainer || !quizEndMessage || !resetButton) return; // 要素の存在確認
 
             incorrectListContainer.innerHTML = ''; // 前回の表示をクリア
 
             if (incorrectQuestions.length > 0) {
                 const title = document.createElement('h3');
-                 // Tailwind classes for styling the title
                 title.className = 'text-xl text-red-700 mb-4';
                 title.textContent = '間違えた問題';
                 incorrectListContainer.appendChild(title);
@@ -2027,8 +2094,8 @@
 
                 incorrectQuestions.forEach((question, index) => {
                     const li = document.createElement('li');
-                    // 問題のタイトルと正解を表示
-                    li.innerHTML = `<strong>${question.年度} ${question.問題番号}</strong><br>正解: ${question.正解}`;
+                     // 問題のタイトルと正解を表示（簡潔に）
+                     li.innerHTML = `<strong>${question.年度} ${question.問題番号}</strong>`;
                     // クリックイベントリスナーを追加
                     li.addEventListener('click', () => {
                         loadSpecificQuestion(question); // クリックされた問題のオブジェクトを渡す
@@ -2038,26 +2105,27 @@
 
                 incorrectListContainer.appendChild(ul);
             } else {
-                 // 間違えた問題がなかった場合のメッセージ
-                 const message = document.createElement('p');
-                 message.className = 'text-lg text-green-700'; // Tailwind classes for styling
-                 message.textContent = '素晴らしい！全問正解です！';
-                 incorrectListContainer.appendChild(message);
+                // 間違えた問題がなかった場合のメッセージ
+                const message = document.createElement('p');
+                message.className = 'text-lg text-green-700';
+                message.textContent = '素晴らしい！全問正解です！';
+                incorrectListContainer.appendChild(message);
             }
         }
 
         // 問題一覧に戻る関数 (追加)
         function returnToIncorrectList() {
-            // 問題表示エリアを非表示
-            if (questionContainer) questionContainer.style.display = 'none';
-            // クイズ終了メッセージエリアを表示
-            if (quizEndMessage) quizEndMessage.style.display = 'block';
-             // ボタンの状態をリセット（レビューモードのボタンを非表示）
-            if (checkButton) checkButton.style.display = 'none';
-            if (nextButton) nextButton.style.display = 'none';
-            if (backToListButton) backToListButton.style.display = 'none';
-             // リセットボタンを表示
-            if (resetButton) resetButton.style.display = 'block';
+             if (!questionContainer || !quizEndMessage || !nextButton || !backToListButton || !resetButton || !progressBar || !progressBar.parentElement || !optionsContainer) return; // 要素の存在確認
+
+            questionContainer.style.display = 'none';
+            quizEndMessage.style.display = 'block';
+
+            // ボタンの状態をリセット（レビューモードのボタンを非表示）
+            nextButton.style.display = 'none';
+            backToListButton.style.display = 'none';
+            resetButton.style.display = 'block';
+            progressBar.parentElement.style.display = 'none'; // プログレスバーを非表示
+             optionsContainer.classList.remove('answered'); // 回答済みクラスをリセット
 
             // 問題一覧を再表示（内容はincorrectQuestions配列に残っている）
             displayIncorrectQuestions();
@@ -2065,14 +2133,14 @@
 
 
         function resetQuiz() {
-            // クイズ終了メッセージを非表示
-            if (quizEndMessage) quizEndMessage.style.display = 'none';
-            // クイズを再初期化してランダムな問題を再度選択
+             if (!quizEndMessage || !progressBar || !progressBar.parentElement || !optionsContainer) return; // 要素の存在確認
+            quizEndMessage.style.display = 'none';
+             progressBar.parentElement.style.display = 'block'; // プログレスバーを表示
+             optionsContainer.classList.remove('answered'); // 回答済みクラスをリセット
             initQuiz();
         }
 
         // ページ読み込み完了後にクイズを初期化し、データを設定
-        // DOMContentLoadedイベントを使用することで、HTMLの解析が完了してからスクリプトを実行します。
         document.addEventListener('DOMContentLoaded', (event) => {
             initQuiz();
         });
