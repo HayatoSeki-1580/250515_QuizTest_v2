@@ -233,15 +233,38 @@
             background-color: #059669; /* green-600 */
         }
 
+         /* Style for question list items */
          .question-list-item {
              background-color: #60a5fa; /* blue-400 */
              font-size: 1rem;
              text-align: left;
+             display: flex; /* Use flexbox for better alignment */
+             align-items: center;
+             justify-content: space-between; /* Space out content and status */
          }
 
          .question-list-item:hover {
              background-color: #3b82f6; /* blue-500 */
          }
+
+         /* Styles for question list item status indicators */
+         .question-list-item .status-indicator {
+             font-weight: bold;
+             margin-left: 1rem; /* Space from text */
+         }
+
+         .question-list-item.answered .status-indicator {
+             color: #4b5563; /* gray-600 */
+         }
+
+         .question-list-item.correct .status-indicator {
+             color: #059669; /* green-600 */
+         }
+
+         .question-list-item.incorrect .status-indicator {
+             color: #dc2626; /* red-600 */
+         }
+
 
         #question-list-container h3 {
             font-size: 1.5rem;
@@ -310,8 +333,10 @@
             <div id="options-container">
                 </div>
             <div id="result" class="result"></div>
-            <button id="next-button" class="mt-6 px-6 py-3 text-lg font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">次の問題へ</button>
-            <button id="back-to-previous-screen-button" class="mt-6 px-6 py-3 text-lg font-semibold text-white bg-gray-600 hover:bg-gray-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">戻る</button>
+            <div class="mt-6 flex flex-col md:flex-row justify-center gap-4">
+                <button id="next-button" class="px-6 py-3 text-lg font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">次の問題へ</button>
+                <button id="back-to-previous-screen-button" class="px-6 py-3 text-lg font-semibold text-white bg-gray-600 hover:bg-gray-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">戻る</button>
+            </div>
         </div>
 
         <div id="quiz-end-message" class="mt-8 text-center" style="display: none;">
@@ -477,19 +502,9 @@
                  domElements.questionCountSpan.style.display = isRandomQuiz ? 'block' : 'none';
              }
 
-            // 「戻る」ボタンの表示制御
+            // 「戻る」ボタンの表示制御 (Quiz画面以外は各画面で個別に制御)
             if (domElements.backToPreviousScreenButton) {
-                 // クイズ画面で、かつランダムモードでない場合（年度別学習や間違いレビュー）に「戻る」を表示
-                 const showBackButton = screenName === 'quiz' && quizState.previousScreen !== 'random_setup' && quizState.previousScreen !== 'select';
-                 domElements.backToPreviousScreenButton.style.display = showBackButton ? 'inline-block' : 'none';
-
-                 if (quizState.previousScreen === 'question_list') {
-                     domElements.backToPreviousScreenButton.textContent = '問題一覧に戻る';
-                 } else if (quizState.previousScreen === 'end_review') { // 間違えた問題のレビュー画面から
-                     domElements.backToPreviousScreenButton.textContent = '結果画面に戻る';
-                 } else {
-                     domElements.backToPreviousScreenButton.textContent = '戻る'; // デフォルト
-                 }
+                 domElements.backToPreviousScreenButton.style.display = 'none'; // Default hide
             }
              // 他の画面の戻るボタンの表示制御
              if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.style.display = screenName === 'year_select' ? 'block' : 'none';
@@ -575,16 +590,9 @@
                 return;
             }
             quizState.currentYear = year;
+            // 年度内の全問題を取得 (解答履歴は保持)
             quizState.questions = allQuizData.filter(q => q.年度 === year);
-             quizState.currentQuestionIndex = -1; // リセット
-            // この年度の問題の解答履歴はクリアしない（再挑戦時に以前の解答が見れるようにするため）。
-            // もし常にクリアしたい場合は以下のコメントアウトを外す
-            /*
-            quizState.questions.forEach(q => {
-                delete q.userChoice;
-                delete q.isCorrect;
-            });
-            */
+             quizState.currentQuestionIndex = -1; // リスト表示時はインデックス不要だがリセット
 
             domElements.questionsForYearContainer.innerHTML = '';
             domElements.selectedYearTitle.textContent = `${year} の問題一覧`;
@@ -592,18 +600,47 @@
             if (quizState.questions.length > 0) {
                 quizState.questions.forEach((question, index) => {
                     const listItem = document.createElement('div');
+                    // 正誤状態に応じてクラスを追加
                     listItem.className = 'question-list-item';
+                    if (question.hasOwnProperty('isCorrect')) {
+                        listItem.classList.add('answered');
+                        if (question.isCorrect) {
+                            listItem.classList.add('correct');
+                        } else {
+                            listItem.classList.add('incorrect');
+                        }
+                    }
+
                     let questionPreview = question.問題文 ? question.問題文.substring(0, 50) + (question.問題文.length > 50 ? '...' : '') : '';
                     if (question.問題項目 && !questionPreview) {
                         questionPreview = '物象の状態の量と法定計量単位の組み合わせ問題';
                     } else if (!questionPreview) {
                         questionPreview = '問題文なし';
                     }
-                    listItem.innerHTML = `<strong>${question.問題番号}</strong>: ${questionPreview}`;
-                    if (question.hasOwnProperty('isCorrect')) { // 解答済みの問題に印をつける
-                        listItem.innerHTML += question.isCorrect ? ' <span class="text-green-600 font-bold">✔</span>' : ' <span class="text-red-600 font-bold">✘</span>';
+
+                    let statusIndicator = '';
+                    if (question.hasOwnProperty('isCorrect')) {
+                        statusIndicator = question.isCorrect ? '✅' : '❌';
+                    } else {
+                         statusIndicator = '未解答';
                     }
-                    listItem.addEventListener('click', () => startSpecificQuestionQuiz(question, 'question_list'));
+
+
+                    listItem.innerHTML = `
+                        <div><strong>${question.年度} ${question.問題番号}</strong>: ${questionPreview}</div>
+                        <div class="status-indicator">${statusIndicator}</div>
+                    `;
+
+                    listItem.addEventListener('click', () => {
+                         // クリックされた問題のインデックスを見つける
+                         const clickedIndex = quizState.questions.findIndex(q => q.問題番号 === question.問題番号 && q.年度 === question.年度);
+                         if (clickedIndex !== -1) {
+                             quizState.currentQuestionIndex = clickedIndex; // 現在のインデックスを設定
+                             startSpecificQuestionQuiz(question, 'question_list');
+                         } else {
+                             console.error("Clicked question not found in the current year's list.");
+                         }
+                    });
                     domElements.questionsForYearContainer.appendChild(listItem);
                 });
             } else {
@@ -622,9 +659,9 @@
              quizState.previousScreen = originScreen; // 画面遷移前にpreviousScreenを設定
 
              // quizState.questions は年度別問題リストのままか、間違えた問題レビュー時は別途設定される
-             if (originScreen === 'question_list') { // 年度別一覧から来た場合
+             if (originScreen === 'question_list') {
                  // quizState.questions は既にその年度の問題リストになっている
-                 quizState.currentQuestionIndex = quizState.questions.findIndex(q => q.問題番号 === question.問題番号 && q.年度 === question.年度);
+                 // currentQuestionIndexはshowQuestionListのクリックイベントで既に設定済み
              } else if (originScreen === 'end_review') { // 間違えた問題のレビューから来た場合
                  quizState.questions = [question]; // 現在の問題のみをリストとする
                  quizState.currentQuestionIndex = 0;
@@ -643,7 +680,7 @@
 
         // 問題を表示する共通関数
         function displayQuestion(question) {
-            if (!question || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer || !domElements.resultDiv || !domElements.nextButton || !domElements.questionCountSpan) {
+            if (!question || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer || !domElements.resultDiv || !domElements.nextButton || !domElements.questionCountSpan || !domElements.backToPreviousScreenButton) {
                 console.error("Required DOM elements for displaying question are missing.");
                 return;
             }
@@ -657,7 +694,7 @@
             domElements.resultDiv.textContent = '';
             domElements.resultDiv.className = 'result';
             domElements.nextButton.style.display = 'none';
-             // 「戻る」ボタンはdisplayAnswerStylesAndResultで制御
+            domElements.backToPreviousScreenButton.style.display = 'none'; // デフォルトは非表示
 
 
             let titlePrefix = "";
@@ -720,10 +757,8 @@
 
             if (quizState.answered) { // 解答済みのスタイルと結果を復元
                 applyAnswerStylesAndResult(question.userChoice, question.正解, question);
-                // 解答済みの場合は「戻る」ボタンなどを適切に表示
-                if (quizState.previousScreen === 'question_list' || quizState.previousScreen === 'end_review') {
-                     if(domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.style.display = 'inline-block';
-                } else if (quizState.previousScreen === 'random_setup') { // ランダムモードで解答済みの場合
+                // 解答済みの場合はボタンを適切に表示
+                 if (quizState.previousScreen === 'random_setup') { // ランダムモード
                      if (domElements.nextButton) {
                          domElements.nextButton.style.display = 'block';
                          if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
@@ -732,6 +767,23 @@
                              domElements.nextButton.textContent = '結果を見る';
                          }
                      }
+                 } else if (quizState.previousScreen === 'question_list') { // 年度別学習モード
+                      if (domElements.backToPreviousScreenButton) {
+                          domElements.backToPreviousScreenButton.style.display = 'inline-block';
+                          domElements.backToPreviousScreenButton.textContent = '問題一覧に戻る';
+                      }
+                      // 年度内の最後の問題でなければ「次の問題へ」を表示
+                      if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
+                          if (domElements.nextButton) {
+                              domElements.nextButton.style.display = 'inline-block';
+                              domElements.nextButton.textContent = '次の問題へ';
+                          }
+                      }
+                 } else if (quizState.previousScreen === 'end_review') { // 間違いレビューモード
+                      if (domElements.backToPreviousScreenButton) {
+                          domElements.backToPreviousScreenButton.style.display = 'inline-block';
+                          domElements.backToPreviousScreenButton.textContent = '結果画面に戻る';
+                      }
                  }
             }
         }
@@ -739,7 +791,7 @@
 
         // 次のランダム問題をロードする関数
         function loadNextRandomQuestion() {
-            if (!domElements.questionContainer || !domElements.quizEndMessage || !domElements.resultDiv || !domElements.nextButton || !domElements.incorrectListContainer || !domElements.resetButton || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer || !domElements.progressBar || !domElements.progressBarContainer || !domElements.questionCountSpan) {
+            if (!domElements.questionContainer || !domElements.quizEndMessage || !domElements.resultDiv || !domElements.nextButton || !domElements.incorrectListContainer || !domElements.resetButton || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer || !domElements.progressBar || !domElements.progressBarContainer || !domElements.questionCountSpan || !domElements.backToPreviousScreenButton) {
                  console.error("Required DOM elements for loadNextRandomQuestion are missing.");
                  return;
             }
@@ -794,12 +846,46 @@
             }
         }
 
+        // 次の年度別問題をロードする関数
+        function loadNextYearQuestion() {
+             if (!domElements.questionContainer || !domElements.resultDiv || !domElements.nextButton || !domElements.backToPreviousScreenButton || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer) {
+                 console.error("Required DOM elements for loadNextYearQuestion are missing.");
+                 return;
+             }
+
+             quizState.answered = false;
+             if(domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
+
+             quizState.currentQuestionIndex++; // 問題インデックスをインクリメント
+
+             if (domElements.resultDiv) {
+                 domElements.resultDiv.textContent = '';
+                 domElements.resultDiv.className = 'result';
+             }
+             if (domElements.nextButton) domElements.nextButton.style.display = 'none';
+             if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.style.display = 'none';
+
+
+             if (quizState.currentQuestionIndex < quizState.questions.length) {
+                 const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
+                 quizState.currentQuestionObject = currentQuestion; // 現在の問題オブジェクトを更新
+
+                 // 年度別学習では解答履歴は保持するのでクリアしない
+                 displayQuestion(currentQuestion);
+                 showScreen('quiz'); // currentModeを'quiz'に設定
+             } else { // 年度内の全ての問題を解き終わった場合（この関数からは発生しない想定だが念のため）
+                 console.warn("Attempted to load next year question beyond the list length.");
+                 // 問題一覧に戻るなどの処理が必要であればここに追加
+             }
+        }
+
+
         // 選択肢が選択されたときの処理（回答判定）
         function handleOptionSelect(event) {
             if (quizState.answered) return; // 既に回答済みなら何もしない
 
             const currentQuestion = quizState.currentQuestionObject;
-            if (!currentQuestion || !domElements.optionsContainer || !domElements.resultDiv || !domElements.nextButton) {
+            if (!currentQuestion || !domElements.optionsContainer || !domElements.resultDiv || !domElements.nextButton || !domElements.backToPreviousScreenButton) {
                 console.error("Cannot handle option select: current question or DOM elements missing.");
                 return;
             }
@@ -811,6 +897,7 @@
             const selectedValue = selectedAnswerInput.value;
             const correctAnswer = currentQuestion.正解;
 
+            // 現在の問題オブジェクトに解答履歴を保存
             currentQuestion.userChoice = selectedValue;
             currentQuestion.isCorrect = (selectedValue === correctAnswer);
 
@@ -826,9 +913,23 @@
                         domElements.nextButton.textContent = '結果を見る';
                     }
                 }
-            } else if (quizState.previousScreen === 'question_list' || quizState.previousScreen === 'end_review') { // 年度別学習中 or 間違いレビュー中
-                 // 個別問題では「戻る」ボタンを表示
-                 if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.style.display = 'inline-block';
+            } else if (quizState.previousScreen === 'question_list') { // 年度別学習モード
+                 if (domElements.backToPreviousScreenButton) {
+                     domElements.backToPreviousScreenButton.style.display = 'inline-block';
+                     domElements.backToPreviousScreenButton.textContent = '問題一覧に戻る';
+                 }
+                 // 年度内の最後の問題でなければ「次の問題へ」を表示
+                 if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
+                     if (domElements.nextButton) {
+                         domElements.nextButton.style.display = 'inline-block';
+                         domElements.nextButton.textContent = '次の問題へ';
+                     }
+                 }
+            } else if (quizState.previousScreen === 'end_review') { // 間違いレビューモード
+                 if (domElements.backToPreviousScreenButton) {
+                     domElements.backToPreviousScreenButton.style.display = 'inline-block';
+                     domElements.backToPreviousScreenButton.textContent = '結果画面に戻る';
+                 }
             }
         }
 
@@ -881,7 +982,7 @@
         function handleNextButton() {
             if (quizState.previousScreen === 'random_setup') { // ランダムモードの場合
                 if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
-                    loadNextRandomQuestion(); // 次の問題をロード
+                    loadNextRandomQuestion(); // 次のランダム問題をロード
                 } else { // 全ての問題を解き終わった場合
                     if (domElements.progressBar) domElements.progressBar.style.width = `100%`;
                     showScreen('end'); // 結果画面へ遷移
@@ -889,6 +990,18 @@
                     if (domElements.resetButton) domElements.resetButton.style.display = 'block';
                     displayIncorrectQuestions();
                 }
+            } else if (quizState.previousScreen === 'question_list') { // 年度別学習モードの場合
+                 if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
+                     loadNextYearQuestion(); // 次の年度別問題をロード
+                 } else {
+                     // 年度内の最後の問題の場合は問題一覧に戻る
+                     if (quizState.currentYear) {
+                         showQuestionList(quizState.currentYear);
+                     } else {
+                         // currentYearが不明な場合は年度選択に戻るなど
+                         showYearSelection();
+                     }
+                 }
             }
             // 他のモードでは NextButton は基本的に表示されない想定
         }
@@ -938,7 +1051,8 @@
             } else if (quizState.previousScreen === 'end_review') { // 間違えた問題のレビュー画面から結果画面へ
                 showScreen('end'); // クイズ終了画面を再表示
                  // 結果画面の表示内容を復元
-                 if (domElements.finalScore) domElements.finalScore.textContent = `正答数: ${quizState.correctAnswers} / ${NUMBER_OF_QUESTIONS_TO_ASK_RANDOM}`; // ランダムクイズの時の問題数
+                 // ランダムモードからの遷移なので、問題数はランダム出題数を使用
+                 if (domElements.finalScore) domElements.finalScore.textContent = `正答数: ${quizState.correctAnswers} / ${NUMBER_OF_QUESTIONS_TO_ASK_RANDOM}`;
                  if (domElements.resetButton) domElements.resetButton.style.display = 'block';
                  displayIncorrectQuestions(); // 間違えた問題リストを再表示
             } else if (quizState.previousScreen === 'year_select') {
