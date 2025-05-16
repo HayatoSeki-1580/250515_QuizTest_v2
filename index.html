@@ -345,15 +345,19 @@
 
         // クイズの状態を管理するオブジェクト
         let quizState = {
-            currentMode: 'select', // 'select', 'random_setup', 'year_select', 'question_list', 'quiz', 'end', 'review_incorrect'
-            questions: [], // 現在のクイズセッションで使われる問題の配列
-            currentQuestionIndex: -1,
-            currentQuestionObject: null, // 現在表示中の問題オブジェクト
-            correctAnswers: 0,
-            incorrectQuestions: [], // ランダムモードで間違えた問題のリスト
-            answered: false, // 現在の問題が解答済みか (主にランダムクイズと年度別クイズで使用)
-            currentYear: null, // 年度選択モードで選択された年度
-            previousScreen: 'select' // 「戻る」ボタンのための前の画面情報
+            currentMode: 'select',      // 現在表示している画面の種類 ('select', 'year_select', 'question_list', 'quiz', 'end')
+            questionSource: null,     // 問題の出所を示す ('random', 'year', 'review')
+            questions: [],            // 現在のクイズセッションで使われる問題の配列
+            currentQuestionIndex: -1, // questions 配列内の現在の問題のインデックス
+            currentQuestionObject: null,// 現在表示中の問題オブジェクトそのもの
+            correctAnswers: 0,        // ランダムクイズでの正答数
+            incorrectQuestions: [],   // ランダムクイズで間違えた問題のリスト
+            answered: false,          // 現在の問題が解答済みか (主にランダムクイズと年度別クイズで使用)
+            currentYear: null,        // 年度選択モードで選択された年度
+            previousScreenContext: {  // 「戻る」ボタンのための詳細なコンテキスト
+                mode: 'select',
+                year: null
+            }
         };
 
         // DOM要素の取得 (グローバルで一度だけ行う)
@@ -387,7 +391,7 @@
             domElements.backToYearSelectButton = document.getElementById('back-to-year-select-button');
 
             for (const key in domElements) {
-                if (!domElements[key] && key !== 'progressBar') {
+                if (!domElements[key] && key !== 'progressBar') { // progressBar は progressBarContainer があればOKとする
                     if(key === 'progressBarContainer' && !domElements.progressBar) { /* progressBarContainer implies progressBar */ }
                     else if (key === 'progressBar' && !domElements.progressBarContainer) { /* progressBar implies progressBarContainer */ }
                     else {
@@ -396,62 +400,46 @@
                 }
             }
             if (!domElements.progressBar && domElements.progressBarContainer) {
-                console.error(`Error: DOM element with ID 'progress-bar' not found, but 'progress-bar-container' exists.`);
+                console.warn(`Warning: DOM element with ID 'progress-bar' not found, but 'progress-bar-container' exists.`);
             }
         }
-        function getOriginalId(key) {
-            const map = {
-                quizContainer: 'quiz-container', modeSelectionContainer: 'mode-selection-container',
-                yearListContainer: 'year-list-container', questionListContainer: 'question-list-container',
-                questionContainer: 'question-container', questionCountSpan: 'question-count',
-                questionTitle: 'question-title',
-                questionTextDiv: 'question-text', optionsContainer: 'options-container',
-                resultDiv: 'result', nextButton: 'next-button',
-                backToPreviousScreenButton: 'back-to-previous-screen-button', quizEndMessage: 'quiz-end-message',
-                finalScore: 'final-score', resetButton: 'reset-button',
-                incorrectListContainer: 'incorrect-list-container', progressBar: 'progress-bar',
-                progressBarContainer: 'progress-bar-container', randomModeButton: 'random-mode-button',
-                backToModeSelectButton: 'back-to-mode-select-button',
-                selectedYearTitle: 'selected-year-title',
-                questionsForYearContainer: 'questions-for-year-container', backToYearSelectButton: 'back-to-year-select-button'
-            };
+        function getOriginalId(key) { // デバッグ用
+            const map = { /* ... (内容は変更なし) ... */ };
             return map[key] || key;
         }
 
         function loadQuizData() {
-            return fetch('houki.json') // ローカルのJSONファイル名を指定
+            console.log("loadQuizData: Fetching quiz data...");
+            return fetch('houki.json')
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     return response.json();
                 })
                 .then(data => {
                     allQuizData = data;
+                    console.log("loadQuizData: Quiz data loaded successfully.", allQuizData.length, "questions.");
                     initializeQuiz();
                 })
                 .catch(error => {
-                    console.error('データの読み込みに失敗しました:', error);
-                    if (domElements.quizContainer) {
-                        domElements.quizContainer.innerHTML = `<p class="text-red-500">問題データの読み込みに失敗しました。ファイルを確認してください。</p>`;
-                    }
+                    console.error('loadQuizData: Failed to load quiz data:', error);
+                    if (domElements.quizContainer) domElements.quizContainer.innerHTML = `<p class="text-red-500">問題データの読み込みに失敗しました。ファイルを確認してください。</p>`;
                 });
         }
 
         function initializeQuiz() {
+            console.log("initializeQuiz: Setting up event listeners and showing initial screen.");
             if (domElements.randomModeButton) domElements.randomModeButton.addEventListener('click', startRandomQuiz);
             if (domElements.yearSelectModeButton) domElements.yearSelectModeButton.addEventListener('click', showYearSelection);
             if (domElements.nextButton) domElements.nextButton.addEventListener('click', handleNextButton);
             if (domElements.resetButton) domElements.resetButton.addEventListener('click', resetQuiz);
             if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.addEventListener('click', returnToPreviousScreen);
-            if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.addEventListener('click', showModeSelection);
-            if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.addEventListener('click', showYearSelection);
+            if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.addEventListener('click', () => showScreen('select'));
+            if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.addEventListener('click', () => showScreen('year_select'));
             showScreen('select');
         }
 
-        function showScreen(screenName, callingFunction = "") {
-            console.log(`showScreen called for: ${screenName}, from: ${callingFunction}, previousScreen was: ${quizState.previousScreen}, currentMode will be: ${screenName}`);
-            // quizState.previousScreen は、画面遷移をトリガーするアクション (例: startRandomQuiz) の中で設定する
+        function showScreen(screenName) {
+            console.log(`showScreen: Transitioning to '${screenName}'. Current mode was '${quizState.currentMode}'.`);
             quizState.currentMode = screenName;
 
             const screens = [
@@ -466,21 +454,21 @@
                 case 'select': targetScreen = domElements.modeSelectionContainer; break;
                 case 'year_select': targetScreen = domElements.yearListContainer; break;
                 case 'question_list': targetScreen = domElements.questionListContainer; break;
-                case 'quiz': targetScreen = domElements.questionContainer; break; // 'quiz' はランダム、年度別、レビュー共通
+                case 'quiz': targetScreen = domElements.questionContainer; break;
                 case 'end': targetScreen = domElements.quizEndMessage; break;
-                default: console.error("Unknown screen name:", screenName); return;
+                default: console.error("showScreen: Unknown screen name:", screenName); return;
             }
             if (targetScreen) targetScreen.style.display = 'block';
+            console.log(`showScreen: '${screenName}' is now visible.`);
 
-            // プログレスバーと問題数表示の制御
-            const isRandomQuizActive = quizState.previousScreen === 'random_setup' && screenName === 'quiz';
+            // プログレスバーと問題数表示の制御 (ランダムクイズ中のみ)
+            const isRandomQuizActive = quizState.questionSource === 'random' && screenName === 'quiz';
             if (domElements.progressBarContainer) domElements.progressBarContainer.style.display = isRandomQuizActive ? 'block' : 'none';
             if (domElements.questionCountSpan) domElements.questionCountSpan.style.display = isRandomQuizActive ? 'block' : 'none';
 
-            // 各画面固有の戻るボタンの表示制御
+            // 各画面固有の「戻る」ボタンの表示制御 (問題画面の戻るボタンは displayQuestion で制御)
             if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.style.display = screenName === 'year_select' ? 'block' : 'none';
             if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.style.display = screenName === 'question_list' ? 'block' : 'none';
-            // 問題画面の「戻る」ボタンは displayQuestion で制御
         }
 
         function shuffleArray(array) {
@@ -493,30 +481,29 @@
         }
 
         function startRandomQuiz() {
-            console.log("startRandomQuiz called");
-            if (allQuizData.length === 0) {
-                // ... (エラー処理は省略)
-                return;
-            }
-            quizState.previousScreen = 'random_setup'; // ★重要: 次の画面の「戻る」先を示す
+            console.log("startRandomQuiz: Initializing random quiz.");
+            if (allQuizData.length === 0) { console.error("startRandomQuiz: No quiz data available."); return; }
+
+            quizState.questionSource = 'random';
+            quizState.previousScreenContext = { mode: 'select' }; // ランダムクイズの前にいたのはモード選択画面
             quizState.questions = shuffleArray(allQuizData).slice(0, NUMBER_OF_QUESTIONS_TO_ASK_RANDOM);
-            quizState.questions.forEach(q => { delete q.userChoice; delete q.isCorrect; });
+            quizState.questions.forEach(q => { delete q.userChoice; delete q.isCorrect; }); // 解答履歴をクリア
             quizState.correctAnswers = 0;
             quizState.currentQuestionIndex = -1;
             quizState.incorrectQuestions = [];
-            quizState.answered = false; // 新しいクイズセッションなので未解答
+            quizState.answered = false;
             if (domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
-            loadNextQuestion(); // 最初の問題へ
+
+            console.log(`startRandomQuiz: ${quizState.questions.length} questions selected for random quiz.`);
+            loadNextQuestion();
         }
 
         function showYearSelection() {
-            console.log("showYearSelection called");
-            quizState.previousScreen = 'select'; // ★重要
-            // ... (年度ボタン生成処理は省略、変更なし)
-            quizState.questions = [];
-            quizState.incorrectQuestions = [];
-            quizState.correctAnswers = 0;
-            quizState.currentQuestionIndex = -1;
+            console.log("showYearSelection: Displaying year selection screen.");
+            quizState.questionSource = 'year'; // 年度選択モードであることを示す
+            quizState.previousScreenContext = { mode: 'select' }; // 年度選択の前にいたのはモード選択画面
+            quizState.currentYear = null; // 年度選択をリセット
+
             domElements.yearButtonsContainer.innerHTML = '';
             const years = [...new Set(allQuizData.map(q => q.年度))].sort((a, b) => b.localeCompare(a, 'ja'));
             years.forEach(year => {
@@ -526,40 +513,35 @@
                 button.addEventListener('click', () => showQuestionList(year));
                 domElements.yearButtonsContainer.appendChild(button);
             });
-            showScreen('year_select', 'showYearSelection');
+            showScreen('year_select');
         }
 
         function showQuestionList(year) {
-            console.log(`showQuestionList called for year: ${year}`);
-            quizState.previousScreen = 'year_select'; // ★重要
+            console.log(`showQuestionList: Displaying question list for year '${year}'.`);
+            quizState.questionSource = 'year'; // 引き続き年度選択モード
+            quizState.previousScreenContext = { mode: 'year_select' }; // 問題リストの前にいたのは年度選択画面
             quizState.currentYear = year;
-            quizState.questions = allQuizData.filter(q => q.年度 === year); // この年度の問題をセット
-            quizState.currentQuestionIndex = -1; // リスト表示なのでインデックスはリセット
-            // ... (問題リスト表示DOM操作は省略、変更なし)
+            quizState.questions = allQuizData.filter(q => q.年度 === year);
+            quizState.currentQuestionIndex = -1; // リスト表示なので特定の問題インデックスはなし
+
             domElements.questionsForYearContainer.innerHTML = '';
             domElements.selectedYearTitle.textContent = `${year} の問題一覧`;
 
             if (quizState.questions.length > 0) {
-                quizState.questions.forEach((question) => { // index は不要
+                quizState.questions.forEach((question) => {
                     const listItem = document.createElement('div');
                     listItem.className = 'question-list-item';
                     if (question.hasOwnProperty('isCorrect')) {
-                        listItem.classList.add('answered');
-                        listItem.classList.add(question.isCorrect ? 'correct' : 'incorrect');
+                        listItem.classList.add('answered', question.isCorrect ? 'correct' : 'incorrect');
                     }
-                    let questionPreview = question.問題文 ? question.問題文.substring(0, 50) + (question.問題文.length > 50 ? '...' : '') : '';
-                    if (question.問題項目 && !questionPreview) questionPreview = '物象の状態の量と法定計量単位の組み合わせ問題';
-                    else if (!questionPreview) questionPreview = '問題文なし';
-                    let statusIndicator = question.hasOwnProperty('isCorrect') ? (question.isCorrect ? '✅' : '❌') : '未解答';
-                    listItem.innerHTML = `<div><strong>${question.年度} ${question.問題番号}</strong>: ${questionPreview}</div><div class="status-indicator">${statusIndicator}</div>`;
+                    let preview = question.問題文 ? question.問題文.substring(0, 50) + (question.問題文.length > 50 ? '...' : '') : (question.問題項目 ? '表形式問題' : '問題文なし');
+                    let status = question.hasOwnProperty('isCorrect') ? (question.isCorrect ? '✅' : '❌') : '未解答';
+                    listItem.innerHTML = `<div><strong>${question.年度} ${question.問題番号}</strong>: ${preview}</div><div class="status-indicator">${status}</div>`;
                     listItem.addEventListener('click', () => {
-                        // クリックされた問題のインデックスを quizState.questions (現在の年度の問題リスト) から探す
-                        const clickedIndexInYearList = quizState.questions.findIndex(q => q.問題番号 === question.問題番号 && q.年度 === question.年度);
-                        if (clickedIndexInYearList !== -1) {
-                            quizState.currentQuestionIndex = clickedIndexInYearList; // 年度リスト内のインデックスを設定
-                            startSpecificQuestionQuiz(question, 'question_list');
-                        } else {
-                            console.error("Clicked question not found in the current year's list.");
+                        const qIndex = quizState.questions.findIndex(q => q.問題番号 === question.問題番号 && q.年度 === question.年度);
+                        if (qIndex !== -1) {
+                            quizState.currentQuestionIndex = qIndex;
+                            startSpecificQuestionQuiz(question, 'year'); // 'year' から来たことを示す
                         }
                     });
                     domElements.questionsForYearContainer.appendChild(listItem);
@@ -567,40 +549,38 @@
             } else {
                 domElements.questionsForYearContainer.innerHTML = '<p>この年度の問題は見つかりませんでした。</p>';
             }
-            showScreen('question_list', 'showQuestionList');
+            showScreen('question_list');
         }
 
-        // 特定の問題を開始 (年度別リストから、または間違えた問題レビューから)
-        function startSpecificQuestionQuiz(question, originScreen) {
-            console.log(`startSpecificQuestionQuiz called for: ${question.年度} ${question.問題番号}, from: ${originScreen}`);
+        function startSpecificQuestionQuiz(question, source) { // source: 'year' または 'review'
+            console.log(`startSpecificQuestionQuiz: Starting quiz for question ${question.年度}-${question.問題番号} from source '${source}'.`);
             quizState.currentQuestionObject = question;
-            quizState.previousScreen = originScreen; // ★重要: 'question_list' または 'review_incorrect'
+            quizState.questionSource = source; // 'year' または 'review'
 
-            if (originScreen === 'review_incorrect') {
-                quizState.questions = [question]; // レビュー時はこの1問のみが現在の問題リスト
+            if (source === 'review') {
+                quizState.previousScreenContext = { mode: 'end' }; // レビュー問題の前にいたのは結果画面
+                quizState.questions = [question]; // レビュー対象はこの1問のみ
                 quizState.currentQuestionIndex = 0;
-                quizState.answered = true; // 間違えた問題は必ず解答済み
-            } else if (originScreen === 'question_list') {
-                // quizState.questions は既に showQuestionList で年度別問題リストが設定済み
-                // quizState.currentQuestionIndex は showQuestionList のクリックリスナーで設定済み
-                quizState.answered = question.hasOwnProperty('userChoice'); // 年度別問題は解答履歴に依存
+                quizState.answered = true; // レビュー対象は常に解答済み
+            } else { // source === 'year'
+                quizState.previousScreenContext = { mode: 'question_list', year: quizState.currentYear }; // 年度別問題の前にいたのは問題一覧画面
+                // quizState.questions は showQuestionList で設定済み
+                // quizState.currentQuestionIndex は showQuestionList のリスナーで設定済み
+                quizState.answered = question.hasOwnProperty('userChoice'); // 解答履歴に依存
             }
 
-            if (domElements.optionsContainer) {
-                domElements.optionsContainer.classList.toggle('answered', quizState.answered);
-            }
+            if (domElements.optionsContainer) domElements.optionsContainer.classList.toggle('answered', quizState.answered);
             displayQuestion(question);
-            showScreen('quiz', 'startSpecificQuestionQuiz');
+            showScreen('quiz');
         }
-
 
         function displayQuestion(question) {
-            console.log(`displayQuestion: q=${question.年度}-${question.問題番号}, prevScreen=${quizState.previousScreen}, answered=${quizState.answered}`);
-            if (!question || !domElements.questionTitle /* ...他の必須要素チェック... */) {
-                console.error("displayQuestion: Required DOM elements missing."); return;
-            }
+            console.log(`displayQuestion: Displaying question ${question.年度}-${question.問題番号}. Source: '${quizState.questionSource}', Answered: ${quizState.answered}. Previous context: ${JSON.stringify(quizState.previousScreenContext)}`);
 
-            quizState.currentQuestionObject = question; // 常に最新の問題をセット
+            if (!question || !domElements.questionTitle /* ...他の必須要素チェック... */) {
+                console.error("displayQuestion: Required DOM elements missing or question object is null."); return;
+            }
+            quizState.currentQuestionObject = question; // 念のため再セット
 
             domElements.optionsContainer.innerHTML = '';
             domElements.resultDiv.textContent = '';
@@ -609,7 +589,7 @@
             domElements.backToPreviousScreenButton.style.display = 'none';
 
             // 問題番号・タイトル表示
-            if (quizState.previousScreen === 'random_setup') { // ランダムクイズ中のみ問題数を表示
+            if (quizState.questionSource === 'random') {
                 domElements.questionCountSpan.textContent = `${quizState.currentQuestionIndex + 1} / ${quizState.questions.length}`;
                 domElements.questionCountSpan.style.display = 'block';
             } else {
@@ -633,11 +613,10 @@
                 domElements.questionTextDiv.textContent = '問題文の形式が不明です。';
             }
 
-
             // 選択肢表示
-            const isReviewingIncorrect = quizState.previousScreen === 'review_incorrect';
-            // quizState.answered は、ランダム/年度別では解答時にtrueに、レビューでは常にtrue
-            const disableOptions = quizState.answered || isReviewingIncorrect;
+            // quizState.answered は startSpecificQuestionQuiz や handleOptionSelect で設定される
+            // quizState.questionSource === 'review' の場合は常に解答済み扱い (disableOptions = true)
+            const disableOptions = quizState.answered || quizState.questionSource === 'review';
             domElements.optionsContainer.classList.toggle('answered', disableOptions);
 
             if (question.選択肢) {
@@ -657,35 +636,35 @@
 
                     input.disabled = disableOptions;
                     if (disableOptions && question.userChoice && input.value === question.userChoice) {
-                        input.checked = true; // ユーザーの選択を復元
+                        input.checked = true;
                     }
-                    if (!disableOptions) { // 解答可能状態の場合のみイベントリスナーを設定
+                    if (!disableOptions) {
                         input.addEventListener('change', handleOptionSelect);
                     }
                 });
             }
 
             // 結果表示とスタイル適用 (解答済みまたはレビュー中の場合)
-            if (disableOptions) { // quizState.answered が true またはレビュー中
+            if (disableOptions) {
                 if (question.hasOwnProperty('userChoice') && question.hasOwnProperty('正解')) {
-                     applyAnswerStylesAndResult(question.userChoice, question.正解, question);
-                } else if (isReviewingIncorrect) {
-                    // レビュー中で万が一 userChoice がない場合 (基本的にはありえないが念のため)
-                    console.warn("Reviewing incorrect question without userChoice. Displaying correct answer only.");
-                    applyAnswerStylesAndResult(null, question.正解, question); // 正解のみ表示
+                    applyAnswerStylesAndResult(question.userChoice, question.正解, question);
+                } else if (quizState.questionSource === 'review') { // レビュー中で解答履歴がない場合(通常ありえない)
+                    console.warn(`displayQuestion: Reviewing question ${question.年度}-${question.問題番号} without userChoice. Displaying correct answer only.`);
+                    applyAnswerStylesAndResult(null, question.正解, question);
                 }
             }
 
             // ボタン表示制御
-            if (isReviewingIncorrect) {
+            console.log(`displayQuestion: Determining buttons. Source: ${quizState.questionSource}, Answered: ${quizState.answered}, Current Index: ${quizState.currentQuestionIndex}, Total questions: ${quizState.questions.length}`);
+            if (quizState.questionSource === 'review') {
                 domElements.backToPreviousScreenButton.textContent = 'クイズ終了に戻る';
                 domElements.backToPreviousScreenButton.style.display = 'inline-block';
-                console.log("Displaying 'クイズ終了に戻る' button for review_incorrect.");
+                console.log("displayQuestion: 'クイズ終了に戻る' button should be visible for review.");
             } else if (quizState.answered) { // ランダムクイズまたは年度別クイズで解答済み
-                if (quizState.previousScreen === 'random_setup') {
+                if (quizState.questionSource === 'random') {
                     domElements.nextButton.style.display = 'block';
                     domElements.nextButton.textContent = (quizState.currentQuestionIndex < quizState.questions.length - 1) ? '次の問題へ' : '結果を見る';
-                } else if (quizState.previousScreen === 'question_list') {
+                } else if (quizState.questionSource === 'year') {
                     domElements.backToPreviousScreenButton.textContent = '問題一覧に戻る';
                     domElements.backToPreviousScreenButton.style.display = 'inline-block';
                     if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
@@ -697,22 +676,17 @@
             // 未解答時はボタンは表示されない (handleOptionSelect で表示される)
         }
 
-        // ランダムクイズまたは年度別クイズの次の問題へ
         function loadNextQuestion() {
-            console.log(`loadNextQuestion called. prevScreen=${quizState.previousScreen}`);
-            quizState.answered = false; // 新しい問題なので未解答に
+            console.log(`loadNextQuestion: Loading next question. Source: '${quizState.questionSource}', Current index: ${quizState.currentQuestionIndex}, Total: ${quizState.questions.length}`);
+            quizState.answered = false; // 新しい問題は未解答
             if(domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
             quizState.currentQuestionIndex++;
 
-            if (domElements.resultDiv) {
-                domElements.resultDiv.textContent = '';
-                domElements.resultDiv.className = 'result';
-            }
+            if (domElements.resultDiv) { domElements.resultDiv.textContent = ''; domElements.resultDiv.className = 'result'; }
             if (domElements.nextButton) domElements.nextButton.style.display = 'none';
             if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.style.display = 'none';
 
-
-            if (quizState.previousScreen === 'random_setup') { // ランダムクイズの場合のみプログレスバー更新
+            if (quizState.questionSource === 'random') { // ランダムクイズの場合のみプログレスバー更新
                  if (domElements.progressBarContainer) domElements.progressBarContainer.style.display = 'block';
                  if (domElements.progressBar && quizState.questions.length > 0) {
                     const progress = ((quizState.currentQuestionIndex) / quizState.questions.length) * 100;
@@ -720,55 +694,61 @@
                  }
             }
 
-
             if (quizState.currentQuestionIndex < quizState.questions.length) {
                 const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
-                // currentQuestion.userChoice と isCorrect は、ランダムクイズなら startRandomQuiz でクリア済み、
-                // 年度別なら元々保持しているか、handleOptionSelect で設定される。ここでは何もしない。
                 displayQuestion(currentQuestion);
-                // showScreen('quiz') は displayQuestion の後、または startSpecificQuestionQuiz で呼ばれる
-            } else { // 現在のリストの全問題を解き終わった場合
-                if (quizState.previousScreen === 'random_setup') { // ランダムクイズ終了
+                // showScreen('quiz') は displayQuestion の後、または startSpecificQuestionQuiz で呼ばれるのでここでは不要
+            } else { // 全ての問題を解き終わった
+                console.log(`loadNextQuestion: All questions in current set finished. Source: '${quizState.questionSource}'.`);
+                if (quizState.questionSource === 'random') {
                     if (domElements.progressBar) domElements.progressBar.style.width = `100%`;
-                    quizState.previousScreen = 'end_random'; // 結果画面からの戻る先を示すため
-                    showScreen('end', 'loadNextQuestion -> random_end');
+                    quizState.previousScreenContext = { mode: 'quiz', source: 'random' }; // 結果画面の前にいたのはランダムクイズ
+                    showScreen('end');
                     if (domElements.finalScore) domElements.finalScore.textContent = `正答数: ${quizState.correctAnswers} / ${quizState.questions.length}`;
                     if (domElements.resetButton) domElements.resetButton.style.display = 'block';
                     displayIncorrectQuestions();
-                } else if (quizState.previousScreen === 'question_list') { // 年度別クイズのリスト終了
-                    // 年度内の最後の問題だった場合は問題一覧に戻る
-                    if (quizState.currentYear) {
-                        showQuestionList(quizState.currentYear); // currentMode は 'question_list' になる
-                    } else {
-                        showYearSelection(); // 万が一 currentYear がない場合
-                    }
+                } else if (quizState.questionSource === 'year') {
+                    console.log(`loadNextQuestion: End of year questions for ${quizState.currentYear}. Returning to question list.`);
+                    showQuestionList(quizState.currentYear); // 年度内の問題を全て解いたら問題一覧に戻る
                 }
             }
         }
 
-
         function handleOptionSelect(event) {
-            console.log(`handleOptionSelect. prevScreen=${quizState.previousScreen}`);
-            if (quizState.answered) return; // 既に回答済みなら何もしない (レビュー中は選択不可なのでここには来ないはず)
+            console.log(`handleOptionSelect: Option selected. Source: '${quizState.questionSource}'.`);
+            if (quizState.answered || quizState.questionSource === 'review') return; // 解答済み or レビュー中は処理しない
 
             const currentQuestion = quizState.currentQuestionObject;
-            if (!currentQuestion) { console.error("handleOptionSelect: currentQuestionObject is null"); return; }
+            if (!currentQuestion) { console.error("handleOptionSelect: currentQuestionObject is null."); return; }
 
-            quizState.answered = true; // これで解答済みになる
+            quizState.answered = true;
             domElements.optionsContainer.classList.add('answered');
 
             const selectedValue = event.target.value;
             const correctAnswer = currentQuestion.正解;
             currentQuestion.userChoice = selectedValue;
-            currentQuestion.isCorrect = (selectedValue === correctAnswer);
+            const isCorrect = (selectedValue === correctAnswer);
+            currentQuestion.isCorrect = isCorrect;
 
-            applyAnswerStylesAndResult(selectedValue, correctAnswer, currentQuestion);
+            // 正答数カウントと不正解リスト追加 (ランダムクイズのみ)
+            if (quizState.questionSource === 'random') {
+                if (isCorrect) {
+                    quizState.correctAnswers++;
+                    console.log(`handleOptionSelect: Correct answer in random quiz. Score: ${quizState.correctAnswers}`);
+                } else {
+                    if (!quizState.incorrectQuestions.find(q => q.問題番号 === currentQuestion.問題番号 && q.年度 === currentQuestion.年度)) {
+                        quizState.incorrectQuestions.push(currentQuestion);
+                        console.log(`handleOptionSelect: Incorrect answer in random quiz. Added to incorrect list. Count: ${quizState.incorrectQuestions.length}`);
+                    }
+                }
+            }
+            applyAnswerStylesAndResult(selectedValue, correctAnswer, currentQuestion); // 表示更新
 
-            // ボタン表示 (displayQuestion と同じロジック)
-            if (quizState.previousScreen === 'random_setup') {
+            // ボタン表示 (displayQuestion と同じロジックをここでも適用)
+            if (quizState.questionSource === 'random') {
                 domElements.nextButton.style.display = 'block';
                 domElements.nextButton.textContent = (quizState.currentQuestionIndex < quizState.questions.length - 1) ? '次の問題へ' : '結果を見る';
-            } else if (quizState.previousScreen === 'question_list') {
+            } else if (quizState.questionSource === 'year') {
                 domElements.backToPreviousScreenButton.textContent = '問題一覧に戻る';
                 domElements.backToPreviousScreenButton.style.display = 'inline-block';
                 if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
@@ -783,7 +763,7 @@
             if (!domElements.optionsContainer || !domElements.resultDiv) return;
 
             domElements.optionsContainer.querySelectorAll('input[type="radio"]').forEach(radio => {
-                radio.disabled = true; // 解答後は常に無効
+                radio.disabled = true;
                 const label = radio.parentElement;
                 if (label) {
                     label.style.cursor = 'default';
@@ -793,61 +773,36 @@
                         const span = label.querySelector('.option-text-span');
                         if (span && !span.textContent.startsWith('✅')) span.textContent = '✅ ' + span.textContent;
                     }
-                    // selectedValue が null の場合 (レビューで解答履歴なしのケースなど) は不正解表示をスキップ
                     if (selectedValue && optionValue === selectedValue && selectedValue !== correctAnswer) {
                         label.classList.add('incorrect-answer');
                     }
                 }
             });
 
-            if (selectedValue && selectedValue === correctAnswer) { // 正解した場合
+            if (selectedValue && selectedValue === correctAnswer) {
                 domElements.resultDiv.textContent = '正解です！';
                 domElements.resultDiv.className = 'result correct';
-                if (quizState.previousScreen === 'random_setup' && questionObject.isCorrect === true && !quizState.incorrectQuestions.includes(questionObject)) {
-                    // isCorrect が true になった時だけカウント (重複カウント防止のため answered フラグではなく)
-                    // ただし、この関数は isCorrect 設定後なので、問題ないはず
-                     if(questionObject.justMarkedCorrectNow) { // handleOptionSelect で正解になったばかり
-                        quizState.correctAnswers++;
-                        delete questionObject.justMarkedCorrectNow;
-                     } else if (questionObject.isCorrect && !questionObject.hasOwnProperty('userChoiceBeforeApply')) {
-                        // displayQuestion で解答済みを復元した場合、かつ初回の復元
-                        // このロジックは複雑なので、correctAnswers は handleOptionSelect での正解時のみカウントがシンプル
-                     }
-                }
-            } else if (selectedValue) { // 不正解の場合 (何かしら選択はされている)
+            } else if (selectedValue) { // 不正解 (何かしら選択はされている)
                 domElements.resultDiv.textContent = `不正解です。正解は ${correctAnswer} です。`;
                 domElements.resultDiv.className = 'result incorrect';
-                // 間違えた問題リストへの追加は、ランダムモードで、かつ handleOptionSelect で isCorrect が false になった直後
-                // ここでは表示のみ
-            } else if (!selectedValue && correctAnswer) { // 選択なしで正解のみ表示する場合 (レビュー時など)
+            } else if (!selectedValue && correctAnswer) { // 選択なしで正解のみ表示 (レビュー時など)
                  domElements.resultDiv.textContent = `正解は ${correctAnswer} です。`;
                  domElements.resultDiv.className = 'result correct'; // 正解と同じスタイルで
             }
-
-
-            // 正誤カウントと間違えた問題リストへの追加は handleOptionSelect で行うのが一貫性がある
-            if (quizState.previousScreen === 'random_setup' && questionObject.isCorrect === true) {
-                // quizState.correctAnswers++; // applyAnswerStylesAndResult は表示更新なのでここではない
-            } else if (quizState.previousScreen === 'random_setup' && questionObject.isCorrect === false) {
-                // if (!quizState.incorrectQuestions.find(q => q.問題番号 === questionObject.問題番号 && q.年度 === questionObject.年度)) {
-                //     quizState.incorrectQuestions.push(questionObject); // ここでもない
-                // }
-            }
         }
 
-
         function handleNextButton() {
-            console.log(`handleNextButton. prevScreen=${quizState.previousScreen}, currentQIdx=${quizState.currentQuestionIndex}, totalQs=${quizState.questions.length}`);
+            console.log(`handleNextButton: Clicked. Source: '${quizState.questionSource}', Current index: ${quizState.currentQuestionIndex}.`);
             // このボタンはランダムクイズか年度別クイズの解答後に表示される
-            if (quizState.previousScreen === 'random_setup' || quizState.previousScreen === 'question_list') {
+            if (quizState.questionSource === 'random' || quizState.questionSource === 'year') {
                 loadNextQuestion();
             } else {
-                console.warn("handleNextButton called from unexpected screen:", quizState.previousScreen);
+                console.warn("handleNextButton: Called from unexpected source:", quizState.questionSource);
             }
         }
 
         function displayIncorrectQuestions() {
-            console.log("displayIncorrectQuestions. Count:", quizState.incorrectQuestions.length);
+            console.log(`displayIncorrectQuestions: Displaying ${quizState.incorrectQuestions.length} incorrect questions.`);
             if (!domElements.incorrectListContainer) return;
             domElements.incorrectListContainer.innerHTML = '';
 
@@ -864,8 +819,8 @@
                     if (question.問題文 && question.問題文.length <= 30) qText = question.問題文;
                     li.innerHTML = `<strong>${question.年度} ${question.問題番号}</strong>: ${qText}`;
                     li.addEventListener('click', () => {
-                        // 間違えた問題リストからクリックされた場合
-                        startSpecificQuestionQuiz(question, 'review_incorrect');
+                        console.log(`displayIncorrectQuestions: Clicked incorrect question ${question.年度}-${question.問題番号} to review.`);
+                        startSpecificQuestionQuiz(question, 'review'); // 'review' から来たことを示す
                     });
                     ul.appendChild(li);
                 });
@@ -876,50 +831,52 @@
         }
 
         function returnToPreviousScreen() {
-            console.log(`returnToPreviousScreen. currentMode=${quizState.currentMode}, prevScreen=${quizState.previousScreen}`);
-            const screenToReturnTo = quizState.previousScreen; // 戻るべき画面を保持
+            const prevContext = quizState.previousScreenContext;
+            console.log(`returnToPreviousScreen: Returning from currentMode '${quizState.currentMode}' (source: '${quizState.questionSource}') to previous context: ${JSON.stringify(prevContext)}`);
 
-            // UIリセット (ボタン、プログレスバー等)
+            // UIリセット
             if (domElements.nextButton) domElements.nextButton.style.display = 'none';
             if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.style.display = 'none';
             if (domElements.progressBarContainer) domElements.progressBarContainer.style.display = 'none';
-            if (domElements.progressBar) domElements.progressBar.style.width = '0%';
+            if (domElements.progressBar && domElements.progressBarContainer && domElements.progressBarContainer.style.display !== 'none') domElements.progressBar.style.width = '0%';
             if (domElements.questionCountSpan) domElements.questionCountSpan.style.display = 'none';
             if (domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
             if (domElements.resultDiv) { domElements.resultDiv.textContent = ''; domElements.resultDiv.className = 'result';}
 
-            if (screenToReturnTo === 'question_list' && quizState.currentYear) {
-                // currentMode は showQuestionList の中で 'question_list' に設定される
-                // previousScreen は showQuestionList の中で 'year_select' に設定される
-                showQuestionList(quizState.currentYear);
-            } else if (screenToReturnTo === 'review_incorrect') { // 間違えた問題レビュー画面から「クイズ終了画面」へ
-                quizState.previousScreen = 'end_random'; // さらに戻る場合のため
-                showScreen('end', 'returnToPreviousScreen -> from review_incorrect');
-                if (domElements.finalScore) domElements.finalScore.textContent = `正答数: ${quizState.correctAnswers} / ${NUMBER_OF_QUESTIONS_TO_ASK_RANDOM}`; // ランダムクイズの前提
+            if (prevContext.mode === 'question_list' && prevContext.year) {
+                showQuestionList(prevContext.year);
+            } else if (prevContext.mode === 'end') { // 間違えた問題レビュー画面から「クイズ終了画面」へ戻るケース
+                console.log("returnToPreviousScreen: Returning to 'end' screen (random quiz results).");
+                quizState.previousScreenContext = { mode: 'quiz', source: 'random' }; // さらに戻る場合のため
+                showScreen('end');
+                if (domElements.finalScore) domElements.finalScore.textContent = `正答数: ${quizState.correctAnswers} / ${NUMBER_OF_QUESTIONS_TO_ASK_RANDOM}`;
                 if (domElements.resetButton) domElements.resetButton.style.display = 'block';
-                displayIncorrectQuestions(); // 間違えた問題リストを再表示
-            } else if (screenToReturnTo === 'year_select') {
+                displayIncorrectQuestions();
+            } else if (prevContext.mode === 'year_select') {
                 showYearSelection();
-            } else if (screenToReturnTo === 'random_setup') { // ランダムクイズ中に「戻る」はない想定だが、万が一のため
-                showModeSelection();
-            } else if (screenToReturnTo === 'end_random') { // クイズ終了画面から「戻る」 (通常はリセットボタン)
-                 showModeSelection();
-            }
-            else { // デフォルトはモード選択へ
-                showModeSelection();
+            } else { // select, quiz (random/year の途中), etc.
+                showScreen('select'); // デフォルトはモード選択へ
             }
         }
 
-        function showModeSelection() {
-            console.log("showModeSelection called");
-            quizState = { // quizStateを初期状態にリセット
-                currentMode: 'select', questions: [], currentQuestionIndex: -1,
-                currentQuestionObject: null, correctAnswers: 0, incorrectQuestions: [],
-                answered: false, currentYear: null, previousScreen: 'select' // 初期状態
+        function resetQuiz() { // 「もう一度挑戦する」ボタン (結果画面から呼ばれる)
+            console.log("resetQuiz: Resetting quiz to mode selection.");
+            // quizState の大部分は showModeSelection でリセットされる
+            showModeSelection();
+        }
+
+        function showModeSelection() { // モード選択画面表示 (状態を完全にリセット)
+            console.log("showModeSelection: Displaying mode selection and resetting state.");
+            quizState = {
+                currentMode: 'select', questionSource: null, questions: [],
+                currentQuestionIndex: -1, currentQuestionObject: null, correctAnswers: 0,
+                incorrectQuestions: [], answered: false, currentYear: null,
+                previousScreenContext: { mode: 'select' } // 初期状態
             };
-            allQuizData.forEach(q => { delete q.userChoice; delete q.isCorrect; }); // 全データの解答履歴もクリア
-            showScreen('select', 'showModeSelection');
-            // 各コンテナの内容クリア (省略、変更なし)
+            allQuizData.forEach(q => { delete q.userChoice; delete q.isCorrect; });
+            showScreen('select');
+
+            // 各コンテナの内容クリア
             if (domElements.yearButtonsContainer) domElements.yearButtonsContainer.innerHTML = '';
             if (domElements.questionsForYearContainer) domElements.questionsForYearContainer.innerHTML = '';
             if (domElements.incorrectListContainer) domElements.incorrectListContainer.innerHTML = '';
@@ -928,23 +885,15 @@
             if (domElements.questionTitle) domElements.questionTitle.textContent = '';
             if (domElements.questionTextDiv) domElements.questionTextDiv.innerHTML = '';
             if (domElements.optionsContainer) domElements.optionsContainer.innerHTML = '';
-            if (domElements.nextButton) domElements.nextButton.style.display = 'none';
-            if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.style.display = 'none';
+            // ボタンやプログレスバーもリセット (showScreen と displayQuestion で制御されるもの以外)
             if (domElements.resetButton) domElements.resetButton.style.display = 'none';
-            if (domElements.progressBarContainer) domElements.progressBarContainer.style.display = 'none';
-            if (domElements.progressBar) domElements.progressBar.style.width = '0%';
-            if (domElements.questionCountSpan) domElements.questionCountSpan.style.display = 'none';
         }
 
-        function resetQuiz() { // 「もう一度挑戦する」ボタン
-            console.log("resetQuiz called");
-            showModeSelection(); // モード選択画面に戻り、状態を完全にリセット
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOMContentLoaded: Caching DOM elements and loading quiz data.");
+            console.log("DOMContentLoaded: Page loaded. Caching DOM elements and loading quiz data.");
             cacheDOMElements();
-            loadQuizData(); // この中で initializeQuiz() が呼ばれる
+            loadQuizData();
         });
     </script>
 
