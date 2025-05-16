@@ -391,7 +391,8 @@
             domElements.randomModeButton = document.getElementById('random-mode-button');
             domElements.yearSelectModeButton = document.getElementById('year-select-mode-button');
             domElements.yearButtonsContainer = document.getElementById('year-buttons-container');
-            domElements.backToModeSelectButton = document.getElementById('back-to-mode-select-select'); // Corrected ID
+            // Corrected ID here
+            domElements.backToModeSelectButton = document.getElementById('back-to-mode-select-button');
             domElements.selectedYearTitle = document.getElementById('selected-year-title');
             domElements.questionsForYearContainer = document.getElementById('questions-for-year-container');
             domElements.backToYearSelectButton = document.getElementById('back-to-year-select-button');
@@ -423,8 +424,8 @@
                 finalScore: 'final-score', resetButton: 'reset-button',
                 incorrectListContainer: 'incorrect-list-container', progressBar: 'progress-bar',
                 progressBarContainer: 'progress-bar-container', randomModeButton: 'random-mode-button',
-                yearSelectModeButton: 'year-select-mode-button', yearButtonsContainer: 'year-buttons-container',
-                backToModeSelectButton: 'back-to-mode-select', // Corrected ID
+                // Corrected ID here
+                backToModeSelectButton: 'back-to-mode-select-button',
                 selectedYearTitle: 'selected-year-title',
                 questionsForYearContainer: 'questions-for-year-container', backToYearSelectButton: 'back-to-year-select-button'
             };
@@ -658,6 +659,7 @@
 
         // 特定の問題 (年度別または間違えた問題) を解くモードを開始
         function startSpecificQuestionQuiz(question, originScreen) {
+            console.log(`startSpecificQuestionQuiz called from ${originScreen}`); // Debug log
             quizState.currentQuestionObject = question; // 現在の問題をセット
             quizState.answered = question.hasOwnProperty('userChoice'); // 解答済みならanswered=true
              quizState.previousScreen = originScreen; // 画面遷移前にpreviousScreenを設定
@@ -685,6 +687,7 @@
 
         // 問題を表示する共通関数
         function displayQuestion(question) {
+            console.log(`displayQuestion called. currentMode: ${quizState.currentMode}, previousScreen: ${quizState.previousScreen}`); // Debug log
             if (!question || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer || !domElements.resultDiv || !domElements.nextButton || !domElements.questionCountSpan || !domElements.backToPreviousScreenButton) {
                 console.error("Required DOM elements for displaying question are missing.");
                 return;
@@ -797,6 +800,7 @@
 
         // 次のランダム問題をロードする関数
         function loadNextRandomQuestion() {
+            console.log("loadNextRandomQuestion called."); // Debug log
             if (!domElements.questionContainer || !domElements.quizEndMessage || !domElements.resultDiv || !domElements.nextButton || !domElements.incorrectListContainer || !domElements.resetButton || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer || !domElements.progressBar || !domElements.progressBarContainer || !domElements.questionCountSpan || !domElements.backToPreviousScreenButton) {
                  console.error("Required DOM elements for loadNextRandomQuestion are missing.");
                  return;
@@ -854,6 +858,7 @@
 
         // 次の年度別問題をロードする関数
         function loadNextYearQuestion() {
+             console.log("loadNextYearQuestion called."); // Debug log
              if (!domElements.questionContainer || !domElements.resultDiv || !domElements.nextButton || !domElements.backToPreviousScreenButton || !domElements.questionTitle || !domElements.questionTextDiv || !domElements.optionsContainer) {
                  console.error("Required DOM elements for loadNextYearQuestion are missing.");
                  return;
@@ -888,6 +893,7 @@
 
         // 選択肢が選択されたときの処理（回答判定）
         function handleOptionSelect(event) {
+            console.log(`handleOptionSelect called. previousScreen: ${quizState.previousScreen}`); // Debug log
             if (quizState.answered) return; // 既に回答済みなら何もしない
 
             const currentQuestion = quizState.currentQuestionObject;
@@ -942,6 +948,7 @@
 
         // 解答後のスタイル適用と結果表示
         function applyAnswerStylesAndResult(selectedValue, correctAnswer, questionObject) {
+            console.log(`applyAnswerStylesAndResult called. previousScreen: ${quizState.previousScreen}`); // Debug log
             if (!domElements.optionsContainer || !domElements.resultDiv) return;
 
             domElements.optionsContainer.querySelectorAll('input[type="radio"]').forEach(radio => {
@@ -987,6 +994,7 @@
 
         // 「次の問題へ」または「結果を見る」ボタンのハンドラ
         function handleNextButton() {
+            console.log(`handleNextButton called. previousScreen: ${quizState.previousScreen}`); // Debug log
             if (quizState.previousScreen === 'random_setup') { // ランダムモードの場合
                 if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
                     loadNextRandomQuestion(); // 次のランダム問題をロード
@@ -1016,6 +1024,7 @@
 
         // 間違えた問題一覧を表示する関数
         function displayIncorrectQuestions() {
+            console.log("displayIncorrectQuestions called."); // Debug log
             if (!domElements.incorrectListContainer || !domElements.quizEndMessage || !domElements.resetButton) return;
 
             domElements.incorrectListContainer.innerHTML = '';
@@ -1052,6 +1061,7 @@
 
         // 前の画面に戻る関数
         function returnToPreviousScreen() {
+            console.log(`returnToPreviousScreen called. previousScreen: ${quizState.previousScreen}`); // Debug log
             // quizState.previousScreen に基づいて適切な画面に遷移
             if (quizState.previousScreen === 'question_list' && quizState.currentYear) {
                 showQuestionList(quizState.currentYear);
@@ -1084,6 +1094,7 @@
 
         // モード選択画面に戻る関数 (状態を完全にリセット)
         function showModeSelection() {
+            console.log("showModeSelection called."); // Debug log
             quizState = { // quizStateを初期状態にリセット
                 currentMode: 'select',
                 questions: [],
@@ -1124,12 +1135,14 @@
 
         // クイズをリセットする関数 (「もう一度挑戦する」ボタン)
         function resetQuiz() {
+            console.log("resetQuiz called."); // Debug log
             // どの画面からでもモード選択画面に戻り、状態を完全にリセットする
             showModeSelection();
         }
 
         // ページのロード完了後にDOM要素をキャッシュし、クイズデータをロード
         document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded."); // Debug log
             cacheDOMElements();
             loadQuizData(); // この中で initializeQuiz() が呼ばれる
         });
