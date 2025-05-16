@@ -698,7 +698,7 @@
                     domElements.optionsContainer.appendChild(label);
 
                     input.disabled = disableOptions;
-                    if (disableOptions && question.userChoice && input.value === input.value) {
+                    if (disableOptions && question.userChoice && input.value === (index + 1).toString()) {
                         input.checked = true;
                     }
                     if (!disableOptions) {
