@@ -22,7 +22,6 @@
             cursor: pointer;
             transition: all 0.2s ease-in-out;
             background-color: #ffffff; /* white */
-            position: relative; /* Add relative positioning for the explanation */
         }
 
         /* Allow pointer cursor only when not answered */
@@ -382,6 +381,7 @@
     <script>
         // グローバルスコープに配置するデータと定数
         let allQuizData = []; // JSONから読み込む全クイズデータ
+        let allExplanations = {}; // JSONから読み込む解説データ
         const NUMBER_OF_QUESTIONS_TO_ASK_RANDOM = 5; // ランダム出題時の問題数
 
         // クイズの状態を管理するオブジェクト
@@ -470,21 +470,28 @@
         }
 
         function loadQuizData() {
-            console.log("loadQuizData: Fetching quiz data...");
-            return fetch('houki.json') // ローカルのJSONファイル名を指定
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    allQuizData = data;
-                    console.log("loadQuizData: Quiz data loaded successfully.", allQuizData.length, "questions.");
-                    initializeQuiz();
-                })
-                .catch(error => {
-                    console.error('loadQuizData: Failed to load quiz data:', error);
-                    if (domElements.quizContainer) domElements.quizContainer.innerHTML = `<p class="text-red-500">問題データの読み込みに失敗しました。ファイルを確認してください。</p>`;
-                });
+          console.log("loadQuizData: Fetching quiz data...");
+          Promise.all([
+            fetch('problems.json').then(response => {
+              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+              return response.json();
+            }),
+            fetch('explanations.json').then(response => {
+              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+              return response.json();
+            })
+          ])
+          .then(([problemsData, explanationsData]) => {
+            allQuizData = problemsData;
+            allExplanations = explanationsData;
+            console.log("loadQuizData: Quiz and explanation data loaded successfully.");
+            initializeQuiz();
+          })
+          .catch(error => {
+            console.error('loadQuizData: Failed to load quiz data:', error);
+            if (domElements.quizContainer)
+              domElements.quizContainer.innerHTML = `<p class="text-red-500">問題データの読み込みに失敗しました。ファイルを確認してください。</p>`;
+          });
         }
 
         function initializeQuiz() {
@@ -637,6 +644,7 @@
             console.log(`displayQuestion: Q ${question.年度}-${question.問題番号}. Source: '${quizState.questionSource}', Answered: ${quizState.answered}. PrevContext: ${JSON.stringify(quizState.previousScreenContext)}`);
             if (!question || !domElements.questionTitle /* ... */) { console.error("displayQuestion: Missing elements/question."); return; }
 
+            const questionKey = `${question.年度}-${question.問題番号}`;
             quizState.currentQuestionObject = question;
             domElements.optionsContainer.innerHTML = '';
             domElements.resultDiv.textContent = '';
@@ -650,7 +658,8 @@
                 domElements.questionCountSpan.style.display = 'block';
             } else {
                 domElements.questionCountSpan.style.display = 'none';
-            }domElements.questionTitle.textContent = `${question.年度} ${question.問題番号}`;
+            }
+            domElements.questionTitle.textContent = `${question.年度} ${question.問題番号}`;
 
             // 問題文表示 (変更なし)
             if (question.問題項目) {
@@ -686,23 +695,10 @@
                     label.appendChild(input);
                     label.appendChild(span);
 
-                    // Add incorrect explanation span, only if explanation exists for this option.
-                    if (question.incorrect_explanations && question.incorrect_explanations[input.value]) {
-                        const incorrectExplanationSpan = document.createElement('span');
-                        incorrectExplanationSpan.className = 'incorrect-explanation';
-                        incorrectExplanationSpan.textContent = question.incorrect_explanations[input.value];
-                        label.appendChild(incorrectExplanationSpan);
-                        label.addEventListener('click', () => {
-                            if (!input.disabled) { // Only show explanation if question is not answered yet.
-                              incorrectExplanationSpan.classList.toggle('show');
-                            }
-                        });
-                    }
-
                     domElements.optionsContainer.appendChild(label);
 
                     input.disabled = disableOptions;
-                    if (disableOptions && question.userChoice && input.value === question.userChoice) {
+                    if (disableOptions && question.userChoice && input.value === input.value) {
                         input.checked = true;
                     }
                     if (!disableOptions) {
@@ -717,6 +713,13 @@
                 } else if (quizState.questionSource === 'review') {
                     applyAnswerStylesAndResult(null, question.正解, question);
                 }
+            }
+            // Display explanation if available:
+            if (allExplanations[questionKey]) {
+                domElements.explanationText.innerHTML = allExplanations[questionKey].解説.replace(/\n/g, '<br>');
+                domElements.explanationContainer.style.display = 'block';
+            } else {
+                domElements.explanationContainer.style.display = 'none';
             }
 
             // ボタン表示制御
@@ -850,8 +853,9 @@
             }
 
             // Display explanation if available:
-            if (questionObject.解説) {
-                domElements.explanationText.textContent = questionObject.解説;
+            const questionKey = `${questionObject.年度}-${questionObject.問題番号}`;
+            if (allExplanations[questionKey]) {
+                domElements.explanationText.innerHTML = allExplanations[questionKey].解説.replace(/\n/g, '<br>');
                 domElements.explanationContainer.style.display = 'block';
             } else {
                 domElements.explanationContainer.style.display = 'none';
