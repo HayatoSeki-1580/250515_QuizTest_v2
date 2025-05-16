@@ -391,7 +391,7 @@
             domElements.randomModeButton = document.getElementById('random-mode-button');
             domElements.yearSelectModeButton = document.getElementById('year-select-mode-button');
             domElements.yearButtonsContainer = document.getElementById('year-buttons-container');
-            domElements.backToModeSelectButton = document.getElementById('back-to-mode-select-button');
+            domElements.backToModeSelectButton = document.getElementById('back-to-mode-select-select'); // Corrected ID
             domElements.selectedYearTitle = document.getElementById('selected-year-title');
             domElements.questionsForYearContainer = document.getElementById('questions-for-year-container');
             domElements.backToYearSelectButton = document.getElementById('back-to-year-select-button');
@@ -424,7 +424,8 @@
                 incorrectListContainer: 'incorrect-list-container', progressBar: 'progress-bar',
                 progressBarContainer: 'progress-bar-container', randomModeButton: 'random-mode-button',
                 yearSelectModeButton: 'year-select-mode-button', yearButtonsContainer: 'year-buttons-container',
-                backToModeSelectButton: 'back-to-mode-select-button', selectedYearTitle: 'selected-year-title',
+                backToModeSelectButton: 'back-to-mode-select', // Corrected ID
+                selectedYearTitle: 'selected-year-title',
                 questionsForYearContainer: 'questions-for-year-container', backToYearSelectButton: 'back-to-year-select-button'
             };
             return map[key] || key;
@@ -460,8 +461,10 @@
             if (domElements.nextButton) domElements.nextButton.addEventListener('click', handleNextButton);
             if (domElements.resetButton) domElements.resetButton.addEventListener('click', resetQuiz);
             if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.addEventListener('click', returnToPreviousScreen);
+            // Check if backToModeSelectButton exists before adding listener
             if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.addEventListener('click', showModeSelection);
             if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.addEventListener('click', showYearSelection);
+
 
             showScreen('select');
         }
@@ -507,6 +510,7 @@
                  domElements.backToPreviousScreenButton.style.display = 'none'; // Default hide
             }
              // 他の画面の戻るボタンの表示制御
+             // Check if backToModeSelectButton exists before setting display
              if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.style.display = screenName === 'year_select' ? 'block' : 'none';
              if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.style.display = screenName === 'question_list' ? 'block' : 'none';
 
@@ -663,7 +667,8 @@
                  // quizState.questions は既にその年度の問題リストになっている
                  // currentQuestionIndexはshowQuestionListのクリックイベントで既に設定済み
              } else if (originScreen === 'end_review') { // 間違えた問題のレビューから来た場合
-                 quizState.questions = [question]; // 現在の問題のみをリストとする
+                 // 間違いレビュー時は、表示する問題は1問のみ
+                 quizState.questions = [question];
                  quizState.currentQuestionIndex = 0;
              }
 
@@ -780,9 +785,10 @@
                           }
                       }
                  } else if (quizState.previousScreen === 'end_review') { // 間違いレビューモード
+                      // 間違いレビュー時は「クイズ終了」に戻るボタンのみ表示
                       if (domElements.backToPreviousScreenButton) {
                           domElements.backToPreviousScreenButton.style.display = 'inline-block';
-                          domElements.backToPreviousScreenButton.textContent = '結果画面に戻る';
+                          domElements.backToPreviousScreenButton.textContent = 'クイズ終了に戻る'; // ボタンテキストを変更
                       }
                  }
             }
@@ -926,9 +932,10 @@
                      }
                  }
             } else if (quizState.previousScreen === 'end_review') { // 間違いレビューモード
+                 // 間違いレビュー時は「クイズ終了」に戻るボタンのみ表示
                  if (domElements.backToPreviousScreenButton) {
                      domElements.backToPreviousScreenButton.style.display = 'inline-block';
-                     domElements.backToPreviousScreenButton.textContent = '結果画面に戻る';
+                     domElements.backToPreviousScreenButton.textContent = 'クイズ終了に戻る'; // ボタンテキストを変更
                  }
             }
         }
