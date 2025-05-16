@@ -22,7 +22,7 @@
             cursor: pointer;
             transition: all 0.2s ease-in-out;
             background-color: #ffffff; /* white */
-            position: relative; /* Add relative positioning for absolute positioning of the icon/explanation */
+            position: relative; /* Add relative positioning for the explanation */
         }
 
         /* Allow pointer cursor only when not answered */
@@ -317,11 +317,11 @@
             color: #dc2626; /* red-600 */
             font-size: 0.875rem; /* text-sm */
             margin-top: 0.5rem;
-            display: none;
+            display: none; /* Hide by default */
         }
 
         .incorrect-explanation.show {
-            display: block;
+            display: block; /* Show when the explanation should be visible */
         }
 
     </style>
@@ -650,8 +650,7 @@
                 domElements.questionCountSpan.style.display = 'block';
             } else {
                 domElements.questionCountSpan.style.display = 'none';
-            }
-            domElements.questionTitle.textContent = `${question.年度} ${question.問題番号}`;
+            }domElements.questionTitle.textContent = `${question.年度} ${question.問題番号}`;
 
             // 問題文表示 (変更なし)
             if (question.問題項目) {
