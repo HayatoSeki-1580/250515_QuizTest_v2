@@ -22,6 +22,7 @@
             cursor: pointer;
             transition: all 0.2s ease-in-out;
             background-color: #ffffff; /* white */
+            position: relative; /* Add relative positioning for absolute positioning of the icon/explanation */
         }
 
         /* Allow pointer cursor only when not answered */
@@ -274,6 +275,7 @@
             border-radius: 0.375rem; /* rounded-md */
             cursor: pointer;
             transition: background-color 0.3s ease;
+            text-align: center;
         }
 
         .back-button:hover {
@@ -287,6 +289,41 @@
             margin-bottom: 0.5rem; /* space between count and title */
             display: block; /* Ensure it takes its own line */
         }
+
+        /* Explanation container styles */
+        #explanation-container {
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;  /* gray-200 */
+            border-radius: 0.375rem; /* rounded-md */
+            background-color: #f9fafb;  /* gray-50 */
+            display: none; /* Initially hidden */
+        }
+
+        #explanation-container h4 {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600;      /* font-semibold */
+            color: #1e40af;        /* blue-700 */
+            margin-bottom: 0.5rem;  /* mb-2 */
+        }
+
+        #explanation-text {
+            color: #4b5563;        /* gray-600 */
+            font-size: 0.9rem;    /* text-sm */
+            line-height: 1.5rem;
+        }
+
+        .incorrect-explanation {
+            color: #dc2626; /* red-600 */
+            font-size: 0.875rem; /* text-sm */
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .incorrect-explanation.show {
+            display: block;
+        }
+
     </style>
 </head>
 <body class="bg-gray-100 flex justify-center items-start min-h-screen py-8 px-4">
@@ -323,6 +360,10 @@
             <div id="options-container">
             </div>
             <div id="result" class="result"></div>
+            <div id="explanation-container">
+                <h4 id="explanation-title">解説</h4>
+                <p id="explanation-text"></p>
+            </div>
             <div class="mt-6 flex flex-col md:flex-row justify-center gap-4">
                 <button id="next-button" class="px-6 py-3 text-lg font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">次の問題へ</button>
                 <button id="back-to-previous-screen-button" class="px-6 py-3 text-lg font-semibold text-white bg-gray-600 hover:bg-gray-700 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto" style="display: none;">戻る</button>
@@ -346,12 +387,12 @@
         // クイズの状態を管理するオブジェクト
         let quizState = {
             currentMode: 'select',      // 現在表示している画面の種類 ('select', 'year_select', 'question_list', 'quiz', 'end')
-            questionSource: null,     // 問題の出所を示す ('random', 'year', 'review')
+            questionSource: null,      // 問題の出所を示す ('random', 'year', 'review')
             questions: [],            // 現在のクイズセッションで使われる問題の配列
             currentQuestionIndex: -1, // questions 配列内の現在の問題のインデックス
-            currentQuestionObject: null,// 現在表示中の問題オブジェクトそのもの
-            correctAnswers: 0,        // ランダムクイズでの正答数
-            incorrectQuestions: [],   // ランダムクイズで間違えた問題のリスト
+            currentQuestionObject: null, // 現在表示中の問題オブジェクトそのもの
+            correctAnswers: 0,          // ランダムクイズでの正答数
+            incorrectQuestions: [],    // ランダムクイズで間違えた問題のリスト
             answered: false,          // 現在の問題が解答済みか (主にランダムクイズと年度別クイズで使用)
             currentYear: null,        // 年度選択モードで選択された年度
             previousScreenContext: {  // 「戻る」ボタンのための詳細なコンテキスト
@@ -390,12 +431,14 @@
             domElements.selectedYearTitle = document.getElementById('selected-year-title');
             domElements.questionsForYearContainer = document.getElementById('questions-for-year-container');
             domElements.backToYearSelectButton = document.getElementById('back-to-year-select-button');
+            domElements.explanationContainer = document.getElementById('explanation-container');
+            domElements.explanationText = document.getElementById('explanation-text');
 
             for (const key in domElements) {
                 if (!domElements[key] && key !== 'progressBar') {
-                    if(key === 'progressBarContainer' && !domElements.progressBar) { /* progressBarContainer implies progressBar */ }
-                    else if (key === 'progressBar' && !domElements.progressBarContainer) { /* progressBar implies progressBarContainer */ }
-                    else {
+                    if (key === 'progressBarContainer' && !domElements.progressBar) { /* progressBarContainer implies progressBar */
+                    } else if (key === 'progressBar' && !domElements.progressBarContainer) { /* progressBar implies progressBarContainer */
+                    } else {
                         console.error(`Error: DOM element with ID '${getOriginalId(key)}' not found.`);
                     }
                 }
@@ -415,12 +458,13 @@
                 backToPreviousScreenButton: 'back-to-previous-screen-button', quizEndMessage: 'quiz-end-message',
                 finalScore: 'final-score', resetButton: 'reset-button',
                 incorrectListContainer: 'incorrect-list-container', progressBar: 'progress-bar',
-                progressBarContainer: 'progress-bar-container', randomModeButton: 'random-mode-button', // 追加
-                yearSelectModeButton: 'year-select-mode-button', // 追加 (念のため)
-                yearButtonsContainer: 'year-buttons-container', // 追加 (念のため)
+                progressBarContainer: 'progress-bar-container', randomModeButton: 'random-mode-button',
+                yearSelectModeButton: 'year-select-mode-button',
+                yearButtonsContainer: 'year-buttons-container',
                 backToModeSelectButton: 'back-to-mode-select-button',
                 selectedYearTitle: 'selected-year-title',
-                questionsForYearContainer: 'questions-for-year-container', backToYearSelectButton: 'back-to-year-select-button'
+                questionsForYearContainer: 'questions-for-year-container', backToYearSelectButton: 'back-to-year-select-button',
+                explanationContainer: 'explanation-container', explanationText: 'explanation-text'
             };
             return map[key] || key;
         }
@@ -451,7 +495,7 @@
             if (domElements.resetButton) domElements.resetButton.addEventListener('click', resetQuiz);
             if (domElements.backToPreviousScreenButton) domElements.backToPreviousScreenButton.addEventListener('click', returnToPreviousScreen);
             if (domElements.backToModeSelectButton) domElements.backToModeSelectButton.addEventListener('click', () => showScreen('select'));
-            if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.addEventListener('click', () => showScreen('year_select')); // 修正: showYearSelection() ではなく showScreen('year_select')
+            if (domElements.backToYearSelectButton) domElements.backToYearSelectButton.addEventListener('click', () => showScreen('year_select'));
             showScreen('select');
         }
 
@@ -585,7 +629,7 @@
                 quizState.answered = question.hasOwnProperty('userChoice');
             }
 
-            showScreen('quiz'); // ★修正: displayQuestion の前に quiz 画面を表示
+            showScreen('quiz');
             displayQuestion(question);
         }
 
@@ -599,6 +643,7 @@
             domElements.resultDiv.className = 'result';
             domElements.nextButton.style.display = 'none';
             domElements.backToPreviousScreenButton.style.display = 'none';
+            if (domElements.explanationContainer) domElements.explanationContainer.style.display = 'none'; // Ensure explanation is hidden initially
 
             if (quizState.questionSource === 'random') {
                 domElements.questionCountSpan.textContent = `${quizState.currentQuestionIndex + 1} / ${quizState.questions.length}`;
@@ -641,6 +686,20 @@
                     span.textContent = `${index + 1}. ${optionText}`;
                     label.appendChild(input);
                     label.appendChild(span);
+
+                    // Add incorrect explanation span, only if explanation exists for this option.
+                    if (question.incorrect_explanations && question.incorrect_explanations[input.value]) {
+                        const incorrectExplanationSpan = document.createElement('span');
+                        incorrectExplanationSpan.className = 'incorrect-explanation';
+                        incorrectExplanationSpan.textContent = question.incorrect_explanations[input.value];
+                        label.appendChild(incorrectExplanationSpan);
+                        label.addEventListener('click', () => {
+                            if (!input.disabled) { // Only show explanation if question is not answered yet.
+                              incorrectExplanationSpan.classList.toggle('show');
+                            }
+                        });
+                    }
+
                     domElements.optionsContainer.appendChild(label);
 
                     input.disabled = disableOptions;
@@ -684,29 +743,31 @@
         function loadNextQuestion() {
             console.log(`loadNextQuestion: Source: '${quizState.questionSource}', Index: ${quizState.currentQuestionIndex}, Total: ${quizState.questions.length}`);
             quizState.answered = false;
-            if(domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
+            if (domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
             quizState.currentQuestionIndex++;
 
             if (domElements.resultDiv) { domElements.resultDiv.textContent = ''; domElements.resultDiv.className = 'result'; }
+             // Reset explanation display
+            if (domElements.explanationContainer) domElements.explanationContainer.style.display = 'none';
             // ボタンは displayQuestion で制御されるのでここでは触らない
 
             if (quizState.questionSource === 'random') {
-                 if (domElements.progressBarContainer) domElements.progressBarContainer.style.display = 'block';
-                 if (domElements.progressBar && quizState.questions.length > 0) {
+                if (domElements.progressBarContainer) domElements.progressBarContainer.style.display = 'block';
+                if (domElements.progressBar && quizState.questions.length > 0) {
                     const progress = ((quizState.currentQuestionIndex) / quizState.questions.length) * 100;
                     domElements.progressBar.style.width = `${progress}%`;
-                 }
+                }
             }
 
             if (quizState.currentQuestionIndex < quizState.questions.length) {
                 const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
-                showScreen('quiz'); // ★修正: displayQuestion の前に quiz 画面を表示
+                showScreen('quiz');
                 displayQuestion(currentQuestion);
             } else {
                 console.log(`loadNextQuestion: All questions finished for source '${quizState.questionSource}'.`);
                 if (quizState.questionSource === 'random') {
                     if (domElements.progressBar) domElements.progressBar.style.width = `100%`;
-                    quizState.previousScreenContext = { mode: 'quiz', source: 'random' }; // 結果画面の前にいたのはランダムクイズ
+                    quizState.previousScreenContext = { mode: 'quiz', source: 'random' };
                     showScreen('end');
                     if (domElements.finalScore) domElements.finalScore.textContent = `正答数: ${quizState.correctAnswers} / ${quizState.questions.length}`;
                     if (domElements.resetButton) domElements.resetButton.style.display = 'block';
@@ -745,7 +806,7 @@
             applyAnswerStylesAndResult(selectedValue, correctAnswer, currentQuestion);
 
             // ボタン表示 (displayQuestion と同じロジック)
-            if (quizState.questionSource === 'random') {
+             if (quizState.questionSource === 'random') {
                 domElements.nextButton.style.display = 'block';
                 domElements.nextButton.textContent = (quizState.currentQuestionIndex < quizState.questions.length - 1) ? '次の問題へ' : '結果を見る';
             } else if (quizState.questionSource === 'year') {
@@ -759,7 +820,8 @@
         }
 
         function applyAnswerStylesAndResult(selectedValue, correctAnswer, questionObject) {
-            if (!domElements.optionsContainer || !domElements.resultDiv) return;
+            if (!domElements.optionsContainer || !domElements.resultDiv || !domElements.explanationContainer || !domElements.explanationText) return;
+
             domElements.optionsContainer.querySelectorAll('input[type="radio"]').forEach(radio => {
                 radio.disabled = true;
                 const label = radio.parentElement;
@@ -784,8 +846,16 @@
                 domElements.resultDiv.textContent = `不正解です。正解は ${correctAnswer} です。`;
                 domElements.resultDiv.className = 'result incorrect';
             } else if (!selectedValue && correctAnswer) {
-                 domElements.resultDiv.textContent = `正解は ${correctAnswer} です。`;
-                 domElements.resultDiv.className = 'result correct';
+                domElements.resultDiv.textContent = `正解は ${correctAnswer} です。`;
+                domElements.resultDiv.className = 'result correct';
+            }
+
+            // Display explanation if available:
+            if (questionObject.解説) {
+                domElements.explanationText.textContent = questionObject.解説;
+                domElements.explanationContainer.style.display = 'block';
+            } else {
+                domElements.explanationContainer.style.display = 'none';
             }
         }
 
@@ -812,7 +882,7 @@
                 ul.id = 'incorrect-list';
                 quizState.incorrectQuestions.forEach((question) => {
                     const li = document.createElement('li');
-                    let qText = question.問題文 ? question.問題文.substring(0,30)+'...' : (question.問題項目 ? '表形式問題' : '問題文なし');
+                    let qText = question.問題文 ? question.問題文.substring(0, 30) + '...' : (question.問題項目 ? '表形式問題' : '問題文なし');
                     if (question.問題文 && question.問題文.length <= 30) qText = question.問題文;
                     li.innerHTML = `<strong>${question.年度} ${question.問題番号}</strong>: ${qText}`;
                     li.addEventListener('click', () => {
@@ -838,8 +908,8 @@
             if (domElements.progressBar && domElements.progressBarContainer && domElements.progressBarContainer.style.display !== 'none') domElements.progressBar.style.width = '0%';
             if (domElements.questionCountSpan) domElements.questionCountSpan.style.display = 'none';
             if (domElements.optionsContainer) domElements.optionsContainer.classList.remove('answered');
-            if (domElements.resultDiv) { domElements.resultDiv.textContent = ''; domElements.resultDiv.className = 'result';}
-
+             if (domElements.resultDiv) { domElements.resultDiv.textContent = ''; domElements.resultDiv.className = 'result';}
+             if (domElements.explanationContainer) domElements.explanationContainer.style.display = 'none';
 
             if (prevContext.mode === 'question_list' && prevContext.year) {
                 showQuestionList(prevContext.year);
@@ -881,6 +951,7 @@
             if (domElements.questionTextDiv) domElements.questionTextDiv.innerHTML = '';
             if (domElements.optionsContainer) domElements.optionsContainer.innerHTML = '';
             if (domElements.resetButton) domElements.resetButton.style.display = 'none';
+            if (domElements.explanationContainer) domElements.explanationContainer.style.display = 'none';
         }
 
         document.addEventListener('DOMContentLoaded', () => {
