@@ -47,6 +47,7 @@
         }
 
 
+
         /* Style for correct answer */
         .option-label.correct-answer {
             background-color: #d4edda; /* bg-green-100 */
@@ -184,9 +185,9 @@
          /* Adjust column widths for smaller screens if necessary */
         @media (max-width: 600px) {
             .question-item, .question-items-header {
-                grid-template-columns: 1.5rem 1.5rem 8rem 1fr; /* Adjust column widths for smaller screens */
-                gap: 0.3rem;
-                padding: 0.5rem;
+                 grid-template-columns: 1.5rem 1.5rem 8rem 1fr; /* Adjust column widths for smaller screens */
+                 gap: 0.3rem;
+                 padding: 0.5rem;
             }
              .question-item .item-quantity {
                  grid-column: 3 / 4;
@@ -289,10 +290,9 @@
         <div id="question-list-container">
             <h3 id="selected-year-title"></h3>
             <div id="questions-for-year-container">
-                 </div>
+                </div>
             <button id="back-to-year-select-button" class="back-button">年度選択に戻る</button>
         </div>
-
 
         <div id="question-container">
             <div id="progress-bar-container">
@@ -311,7 +311,7 @@
             <h2 class="text-2xl text-blue-700 mb-4">クイズ終了！</h2>
             <p id="final-score" class="text-xl mb-5 font-semibold"></p>
              <div id="incorrect-list-container" class="mt-8 text-left border-t pt-5">
-                 </div>
+                </div>
             <button id="reset-button" class="mt-6 px-6 py-3 text-lg font-semibold text-gray-800 bg-yellow-400 hover:bg-yellow-500 rounded-md cursor-pointer transition-colors duration-300 w-full md:w-auto">もう一度挑戦する</button>
         </div>
     </div>
@@ -6241,7 +6241,7 @@
     
         ];
 
-        let questions = []; // 現在表示する問題の配列
+       let questions = []; // 現在表示する問題の配列
         const numberOfQuestionsToAsk = 5; // ランダム出題時の問題数
         let currentQuestionIndex = -1; // 現在の問題のインデックス (0から始まります)
         let correctAnswers = 0; // 正答数
@@ -6305,14 +6305,16 @@
                 quizEndMessage.style.display = 'block';
             }
              // プログレスバーの表示/非表示はクイズ画面でのみ制御
-             if (progressBar && progressBar.parentElement) {
-                 progressBar.parentElement.style.display = screenName === 'quiz' && currentMode === 'random' ? 'block' : 'none';
-             }
-             currentMode = screenName; // 現在のモードを更新
+             // currentMode の値に基づいてプログレスバーの表示を制御
+            if (progressBar && progressBar.parentElement) {
+                progressBar.parentElement.style.display = (screenName === 'quiz' && currentMode === 'random') ? 'block' : 'none';
+            }
         }
 
         // 初期画面表示
-        showScreen('select');
+        document.addEventListener('DOMContentLoaded', (event) => {
+            showScreen('select');
+        });
 
 
         // 配列をシャッフルする関数 (Fisher-Yates (Knuth) Shuffle)
@@ -6327,13 +6329,19 @@
         // ランダム出題モード開始
         function startRandomQuiz() {
             if (allQuizData.length > 0) {
+                currentMode = 'random';
+                // クイズデータをリセット（以前の解答情報をクリア）
+                allQuizData.forEach(q => {
+                    delete q.userChoice;
+                    delete q.isCorrect;
+                });
                 questions = shuffleArray([...allQuizData]).slice(0, numberOfQuestionsToAsk);
-                correctAnswers = 0; // 正答数をリセット
-                currentQuestionIndex = -1; // 問題インデックスをリセット
-                incorrectQuestions = []; // 間違えた問題リストをリセット
+                correctAnswers = 0;
+                currentQuestionIndex = -1;
+                incorrectQuestions = [];
                 answered = false;
-                 if (optionsContainer) optionsContainer.classList.remove('answered');
-                loadNextQuestion(); // 最初の問題をロードしてクイズ開始
+                if (optionsContainer) optionsContainer.classList.remove('answered');
+                loadNextQuestion();
                 showScreen('quiz');
             } else {
                 console.error('問題データが見つかりません。');
@@ -6341,18 +6349,25 @@
                      resultDiv.textContent = `問題データがありません。`;
                      resultDiv.className = 'result incorrect';
                 }
-                showScreen('end'); // 問題がない場合は終了画面へ
-                 if (finalScore) finalScore.textContent = 'クイズを開始できませんでした。';
-                 if (resetButton) resetButton.style.display = 'block';
+                currentMode = 'end';
+                showScreen('end');
+                if (finalScore) finalScore.textContent = 'クイズを開始できませんでした。';
+                if (resetButton) resetButton.style.display = 'block';
             }
         }
 
         // 年度選択画面表示
         function showYearSelection() {
             if (!yearButtonsContainer) return;
+            currentMode = 'year_select';
+             // 年度選択時には解答情報をクリアする（年度ごとに新しく始めるため）
+            allQuizData.forEach(q => {
+                delete q.userChoice;
+                delete q.isCorrect;
+            });
 
-            yearButtonsContainer.innerHTML = ''; // リストをクリア
-            const years = [...new Set(allQuizData.map(q => q.年度))].sort(); // 年度を抽出してソート
+            yearButtonsContainer.innerHTML = '';
+            const years = [...new Set(allQuizData.map(q => q.年度))].sort();
 
             years.forEach(year => {
                 const button = document.createElement('button');
@@ -6368,20 +6383,25 @@
         // 年度ごとの問題一覧表示
         function showQuestionList(year) {
             if (!questionsForYearContainer || !selectedYearTitle) return;
+            currentMode = 'question_list';
 
-            questionsForYearContainer.innerHTML = ''; // リストをクリア
+            questionsForYearContainer.innerHTML = '';
             selectedYearTitle.textContent = `${year} の問題一覧`;
 
-            questions = allQuizData.filter(q => q.年度 === year); // 選択された年度の問題を抽出
+            questions = allQuizData.filter(q => q.年度 === year);
+             // 問題一覧表示時にも、その年度の問題の解答情報をクリアしておく（再挑戦の場合を考慮）
+            questions.forEach(q => {
+                delete q.userChoice;
+                delete q.isCorrect;
+            });
+
 
             if (questions.length > 0) {
                 questions.forEach((question, index) => {
                     const listItem = document.createElement('div');
                     listItem.className = 'question-list-item';
-                    // 問題のタイトルを表示（簡潔に）
-                    // 問題番号の前に "問" を付けないように修正
-                    listItem.innerHTML = `<strong>${question.問題番号}</strong>: ${question.問題文 ? question.問題文.substring(0, 50) + '...' : (question.問題項目 ? '<物象の状態の量>と<法定計量単位>の組み合わせ' : '問題文なし')}`; // 問題文がない場合の表示を調整
-                    listItem.addEventListener('click', () => startYearQuiz(index)); // 問題選択でクイズ開始
+                    listItem.innerHTML = `<strong>${question.問題番号}</strong>: ${question.問題文 ? question.問題文.substring(0, 50) + '...' : (question.問題項目 ? '物象の状態の量と法定計量単位の組み合わせ' : '問題文なし')}`;
+                    listItem.addEventListener('click', () => startYearQuiz(index));
                     questionsForYearContainer.appendChild(listItem);
                 });
             } else {
@@ -6396,59 +6416,88 @@
         // 年度選択モードでのクイズ開始
         function startYearQuiz(questionIndex) {
              if (questions.length > 0 && questionIndex >= 0 && questionIndex < questions.length) {
-                 correctAnswers = 0; // 正答数をリセット（年度別学習では個別に判定）
-                 currentQuestionIndex = questionIndex; // 選択された問題から開始
-                 incorrectQuestions = []; // 間違えた問題リストをリセット
-                 answered = false;
-                 if (optionsContainer) optionsContainer.classList.remove('answered');
-                 loadSpecificQuestion(questions[currentQuestionIndex]); // 選択された問題をロード
-                 showScreen('quiz');
-                 // 年度別学習ではプログレスバーは非表示のまま
-                  if (progressBar && progressBar.parentElement) progressBar.parentElement.style.display = 'none';
+                currentMode = 'quiz'; // 年度別クイズは 'quiz' モード
+                // correctAnswers = 0; // 年度別では問題ごとの正誤のみ記録
+                currentQuestionIndex = questionIndex; // 選択された問題のインデックスを設定
+                // incorrectQuestions = []; // 年度別では間違えた問題リストは使用しないか、別途管理
+                answered = false;
+                if (optionsContainer) optionsContainer.classList.remove('answered');
+                loadSpecificQuestion(questions[currentQuestionIndex]); // 選択された問題をロード
+                showScreen('quiz');
+                if (progressBar && progressBar.parentElement) progressBar.parentElement.style.display = 'none';
              } else {
                  console.error("指定された問題インデックスが無効です。", questionIndex);
-                 // エラーメッセージ表示などの処理を追加することも可能
              }
         }
 
 
+
         // 特定の問題をロードする関数 (間違えた問題リストからの遷移用と年度別学習用)
         function loadSpecificQuestion(question) {
-            if (!questionContainer || !quizEndMessage || !resultDiv || !nextButton || !backToListButton || !incorrectListContainer || !resetButton || !questionTitle || !questionTextDiv || !optionsContainer) return; // 要素の存在確認
+            if (!questionContainer || !quizEndMessage || !resultDiv || !nextButton || !backToListButton || !incorrectListContainer || !resetButton || !questionTitle || !questionTextDiv || !optionsContainer) return;
 
-             // レビューモードまたは年度別学習モードでは回答済みとして扱う
-             answered = true; // 一旦trueにして、選択肢クリックで判定するように変更
-             optionsContainer.classList.remove('answered'); // 回答済みクラスをリセット
+            const currentQuestion = question; // 指定された問題オブジェクト
+
+            // currentQuestionIndex を、渡された question オブジェクトが `questions` 配列の何番目か、に基づいて設定する。
+            // これは、handleOptionSelect がグローバルの currentQuestionIndex を参照するため。
+            // ただし、間違えた問題リストから来た場合、`questions` 配列はランダムクイズの時のもの。
+            // 年度別クイズから来た場合は、その年度の `questions` 配列。
+            // `loadSpecificQuestion` が呼ばれる文脈によって `questions` の内容が異なるため、
+            // `question` オブジェクトが現在の `questions` 配列内に存在するか確認する。
+            let foundIndex = -1;
+            if (Array.isArray(questions)) {
+                 foundIndex = questions.findIndex(q => q.問題番号 === currentQuestion.問題番号 && q.年度 === currentQuestion.年度);
+            }
+
+            if (foundIndex !== -1) {
+                currentQuestionIndex = foundIndex;
+            } else {
+                // `questions` 配列に存在しない場合（例: 間違えた問題リストから直接来た場合で、`questions` がクリアされているなど）
+                // この場合、`currentQuestionIndex` はグローバルな意味を持たなくなるので注意。
+                // `handleOptionSelect` が正しく動作するためには、`questions[currentQuestionIndex]` が `currentQuestion` と一致する必要がある。
+                // 一時的に `questions` を現在の問題のみの配列にするか、`handleOptionSelect` を修正する必要がある。
+                // ここでは、間違えた問題レビュー時は `currentQuestionIndex` を 0 とし、`questions` を一時的に現在の問題のみの配列とする。
+                if (currentMode === 'end') { // 間違えた問題レビュー時
+                    questions = [currentQuestion];
+                    currentQuestionIndex = 0;
+                } else {
+                    // それ以外のケース（年度別など）では、呼び出し元で currentQuestionIndex が設定されている前提
+                    // もし未設定ならエラーログ
+                    if (currentQuestionIndex === -1 || !questions[currentQuestionIndex] || questions[currentQuestionIndex].問題番号 !== currentQuestion.問題番号) {
+                        console.warn("loadSpecificQuestion: currentQuestionIndex may not be correctly set for the provided question.");
+                    }
+                }
+            }
 
 
-            // 結果表示とボタンの状態をリセットし、レビュー用のボタンを表示
+            // answered = false; // ★修正: ここでは answered の状態をリセットしない。解答済みならその状態を維持する。
+            optionsContainer.innerHTML = ''; // オプションコンテナをクリア
+            optionsContainer.classList.remove('answered'); // まずクラスを削除
+
             resultDiv.textContent = '';
             resultDiv.className = 'result';
             nextButton.style.display = 'none';
             resetButton.style.display = 'none';
-            incorrectListContainer.innerHTML = '';
+            // incorrectListContainer.innerHTML = ''; // レビュー画面ではこれはクリアしない
 
-            // 年度別学習の場合は「問題一覧に戻る」ボタンを表示
-            backToListButton.style.display = 'inline-block';
+            if (currentMode === 'quiz' || currentMode === 'end') { // 年度別学習中 or 間違えた問題レビュー中
+                 backToListButton.style.display = 'inline-block';
+            } else {
+                 backToListButton.style.display = 'none';
+            }
+
+            questionTitle.textContent = `${currentQuestion.年度} ${currentQuestion.問題番号}`;
+            if (currentMode === 'quiz' && questions.length > 1 && foundIndex !== -1) { // 年度別クイズで複数問題ある場合
+                 questionTitle.textContent = `(${foundIndex + 1} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
+            }
 
 
-            const currentQuestion = question; // 指定された問題を取得
-
-            // 問題タイトルと本文を表示
-            // 年度別学習では、問題番号を問題タイトルに含める
-            const questionDisplayIndex = questions.indexOf(currentQuestion) + 1; // 現在のセット内でのインデックス
-            // 問題番号の前に "問" を付けないように修正
-            questionTitle.textContent = `(${questionDisplayIndex} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
-
-
-            // 問題文または問題項目を表示
             if (currentQuestion.問題項目) {
                 let itemsHtml = '<div class="question-items-container">';
-                 // 元の問題文があれば表示
                  if (currentQuestion.問題文_original) {
                      itemsHtml += `<p>${currentQuestion.問題文_original.replace(/\n/g, '<br>')}</p><br>`;
                  }
-                 itemsHtml += '<div class="question-items-header"><span class="header-quantity"><物象の状態の量></span> <span class="header-unit"><法定計量単位></span></div>'; // ヘッダー
+                 itemsHtml += '<div class="question-items-header"><span></span> <span class="header-quantity">物象の状態の量</span> <span class="header-unit">法定計量単位</span></div>';
                 currentQuestion.問題項目.forEach(item => {
                     itemsHtml += `<div class="question-item"><span class="item-label">${item.項目}</span> <span class="item-quantity">${item.物象の状態の量}</span> <span class="item-unit">${item.法定計量単位}</span></div>`;
                 });
@@ -6461,85 +6510,120 @@
             }
 
 
-            // 選択肢を動的に生成し、イベントリスナーを追加
-            optionsContainer.innerHTML = ''; // オプションコンテナをクリア
             if (currentQuestion.選択肢) {
                 currentQuestion.選択肢.forEach((optionText, index) => {
                     const label = document.createElement('label');
-                    label.className = 'option-label'; // カスタムクラスを使用
+                    label.className = 'option-label';
                     const input = document.createElement('input');
                     input.type = 'radio';
-                    input.name = 'answer'; // ラジオボタンのグループ名
-                    input.value = (index + 1).toString(); // 選択肢の値を1から設定
+                    input.name = 'answer';
+                    input.value = (index + 1).toString();
 
                     const span = document.createElement('span');
-                     span.className = 'option-text-span'; // 新しいクラス名
+                     span.className = 'option-text-span';
                     span.textContent = `${index + 1}. ${optionText}`;
 
                     label.appendChild(input);
                     label.appendChild(span);
                     optionsContainer.appendChild(label);
 
-                    // 選択肢が選択されたら即座に判定
-                    input.addEventListener('change', handleOptionSelect);
+                    // ★修正: 間違えた問題レビュー時、または年度別で解答済みの場合の処理
+                    if (currentQuestion.hasOwnProperty('userChoice')) { // 解答履歴がある場合
+                        input.disabled = true; // ラジオボタンを無効化
+                        if (input.value === currentQuestion.userChoice) {
+                            input.checked = true; // ユーザーが選んだ選択肢をチェック状態にする
+                        }
+                    } else {
+                        // 通常のクイズ（未解答）の場合
+                        input.addEventListener('change', handleOptionSelect);
+                    }
                 });
             }
 
+            // ★修正: 解答履歴に基づいてスタイルと結果を復元
+            if (currentQuestion.hasOwnProperty('userChoice')) {
+                answered = true; // 解答済み状態にする
+                optionsContainer.classList.add('answered'); // answeredクラスを追加
+                const correctAnswerValue = currentQuestion.正解;
+                const userChoiceValue = currentQuestion.userChoice;
 
-             // 年度別学習では正解表示は回答後に行う
-             answered = false; // 回答可能にする
-             optionsContainer.classList.remove('answered'); // answeredクラスを削除
+                optionsContainer.querySelectorAll('.option-label').forEach(label => {
+                    const radio = label.querySelector('input[type="radio"]');
+                    if (radio) {
+                        if (radio.value === correctAnswerValue) {
+                            label.classList.add('correct-answer');
+                        }
+                        if (radio.value === userChoiceValue && userChoiceValue !== correctAnswerValue) {
+                            label.classList.add('incorrect-answer');
+                        }
+                    }
+                });
 
-
+                if (currentQuestion.isCorrect) {
+                    resultDiv.textContent = '正解です！';
+                    resultDiv.className = 'result correct';
+                } else {
+                    resultDiv.textContent = `不正解です。正解は ${correctAnswerValue} です。`;
+                    resultDiv.className = 'result incorrect';
+                }
+            } else {
+                // まだ解答していない場合 (年度別クイズの初回表示など)
+                answered = false;
+                optionsContainer.classList.remove('answered');
+            }
+             showScreen('quiz');
         }
+
 
 
         // 次の問題をロードする関数 (ランダム出題モード用)
         function loadNextQuestion() {
-            if (!questionContainer || !quizEndMessage || !resultDiv || !nextButton || !backToListButton || !incorrectListContainer || !resetButton || !questionTitle || !questionTextDiv || !optionsContainer || !progressBar || !progressBar.parentElement) return; // 要素の存在確認
+            if (!questionContainer || !quizEndMessage || !resultDiv || !nextButton || !backToListButton || !incorrectListContainer || !resetButton || !questionTitle || !questionTextDiv || !optionsContainer || !progressBar || !progressBar.parentElement) return;
 
-            answered = false; // 次の問題では未回答の状態にする
-             optionsContainer.classList.remove('answered'); // 回答済みクラスをリセット
+            answered = false;
+             optionsContainer.classList.remove('answered'); // 次の問題に進む前にansweredクラスを削除
 
             currentQuestionIndex++;
 
-            // 結果表示と「次へ」ボタン、「問題一覧に戻る」ボタンをクリア/非表示
             resultDiv.textContent = '';
             resultDiv.className = 'result';
             nextButton.style.display = 'none';
+            nextButton.textContent = '次の問題へ';
             backToListButton.style.display = 'none';
             resetButton.style.display = 'none';
 
-            // プログレスバーを表示 (ランダム出題モードのみ)
              if (currentMode === 'random') {
                  progressBar.parentElement.style.display = 'block';
-                 // プログレスバーの更新
-                 const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-                 progressBar.style.width = `${progress}%`;
+                 // プログレスバーの更新は、問題が存在する場合のみ行う
+                 if (questions.length > 0 && currentQuestionIndex < questions.length) {
+                    const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+                    progressBar.style.width = `${progress}%`;
+                 } else if (currentQuestionIndex >= questions.length) { // 全問解答後の場合
+                    progressBar.style.width = `100%`;
+                 }
              } else {
                  progressBar.parentElement.style.display = 'none';
              }
 
 
             if (currentQuestionIndex < questions.length) {
-                // 問題表示モード
                 showScreen('quiz');
-                incorrectListContainer.innerHTML = ''; // 問題一覧表示エリアもクリア
+                incorrectListContainer.innerHTML = '';
 
 
                 const currentQuestion = questions[currentQuestionIndex];
-                // 現在何問目かを表示に追加 (例: 1問目 / 全5問)
-                // 問題番号の前に "問" を付けないように修正
+                 // 問題オブジェクトに以前の解答情報があればクリアする（再挑戦などのため）
+                delete currentQuestion.userChoice;
+                delete currentQuestion.isCorrect;
+
                 questionTitle.textContent = `(${currentQuestionIndex + 1} / ${questions.length}) ${currentQuestion.年度} ${currentQuestion.問題番号}`;
 
-                // 問題文または問題項目を表示
                 if (currentQuestion.問題項目) {
                     let itemsHtml = '<div class="question-items-container">';
-                     // 元の問題文があれば表示
                      if (currentQuestion.問題文_original) {
                          itemsHtml += `<p>${currentQuestion.問題文_original.replace(/\n/g, '<br>')}</p><br>`;
                      }
-                     itemsHtml += '<div class="question-items-header"><span class="header-quantity"><物象の状態の量></span> <span class="header-unit"><法定計量単位></span></div>'; // ヘッダー
+                     itemsHtml += '<div class="question-items-header"><span></span> <span class="header-quantity">物象の状態の量</span> <span class="header-unit">法定計量単位</span></div>';
                     currentQuestion.問題項目.forEach(item => {
                         itemsHtml += `<div class="question-item"><span class="item-label">${item.項目}</span> <span class="item-quantity">${item.物象の状態の量}</span> <span class="item-unit">${item.法定計量単位}</span></div>`;
                     });
@@ -6552,113 +6636,124 @@
                 }
 
 
-                // 選択肢を動的に生成し、イベントリスナーを追加
-                optionsContainer.innerHTML = ''; // オプションコンテナをクリア
-                if (currentQuestion.選択肢) { // optionsContainerと選択肢の存在確認
+                optionsContainer.innerHTML = '';
+                if (currentQuestion.選択肢) {
                      currentQuestion.選択肢.forEach((optionText, index) => {
                          const label = document.createElement('label');
-                         label.className = 'option-label'; // カスタムクラスを使用
+                         label.className = 'option-label';
                          const input = document.createElement('input');
                          input.type = 'radio';
-                         input.name = 'answer'; // ラジオボタンのグループ名
-                         input.value = (index + 1).toString(); // 選択肢の値を1から設定
+                         input.name = 'answer';
+                         input.value = (index + 1).toString();
 
                          const span = document.createElement('span');
-                          span.className = 'option-text-span'; // 新しいクラス名
+                          span.className = 'option-text-span';
                          span.textContent = `${index + 1}. ${optionText}`;
 
                          label.appendChild(input);
                          label.appendChild(span);
                          optionsContainer.appendChild(label);
-
-                         // 選択肢が選択されたら即座に判定
                          input.addEventListener('change', handleOptionSelect);
                      });
                  }
 
 
-            } else {
-                // クイズ終了モード
+            } else { // 全ての問題を解き終わった場合
+                currentMode = 'end';
                 showScreen('end');
                 if (finalScore) finalScore.textContent = `正答数: ${correctAnswers} / ${questions.length}`;
                 if (resetButton) resetButton.style.display = 'block';
-
-                // 間違えた問題一覧を表示
                 displayIncorrectQuestions();
             }
         }
 
         // 選択肢が選択されたときの処理（回答判定）
         function handleOptionSelect(event) {
-            // すでに回答済みの場合は何もしない
-            if (answered) return;
+            if (answered) return; // すでに回答済みの場合は処理しない
 
-             if (!optionsContainer || !resultDiv || !nextButton || !incorrectQuestions || !questions || currentQuestionIndex === -1) { // 要素と状態の確認
-                 console.error("回答判定に必要な要素または情報が不足しています。");
+             if (!optionsContainer || !resultDiv || !nextButton || !incorrectQuestions || !questions || currentQuestionIndex === -1 || currentQuestionIndex >= questions.length ) {
+                 console.error("回答判定に必要な要素または情報が不足しています。 currentQuestionIndex:", currentQuestionIndex, "questions.length:", questions.length);
                  return;
              }
 
             answered = true; // 回答済みフラグを立てる
              optionsContainer.classList.add('answered'); // 回答済みクラスを追加
 
-            const selectedAnswerInput = event.target; // 選択されたラジオボタン
+            const selectedAnswerInput = event.target;
             const selectedValue = selectedAnswerInput.value;
             const currentQuestion = questions[currentQuestionIndex];
+            if (!currentQuestion) {
+                console.error("currentQuestion が undefined です。currentQuestionIndex:", currentQuestionIndex);
+                return;
+            }
             const correctAnswer = currentQuestion.正解;
+
+            // ★解答情報を問題オブジェクトに保存
+            currentQuestion.userChoice = selectedValue;
+            currentQuestion.isCorrect = (selectedValue === correctAnswer);
+
+
             const optionsLabels = optionsContainer.querySelectorAll('.option-label');
 
-            // 全ての選択肢を無効化
             optionsContainer.querySelectorAll('input[type="radio"]').forEach(radio => {
-                 radio.disabled = true;
+                 radio.disabled = true; // 全てのラジオボタンを無効化
                  const label = radio.parentElement;
-                 label.style.cursor = 'default'; // カーソルをデフォルトに戻す
-                 label.classList.remove('selected'); // 選択時のスタイルを解除
+                 label.style.cursor = 'default';
+                 label.classList.remove('selected');
              });
 
 
-            if (selectedValue === correctAnswer) {
+            if (currentQuestion.isCorrect) {
                 resultDiv.textContent = '正解です！';
                 resultDiv.className = 'result correct';
-                // ランダム出題モードの場合のみ正答数をカウント
-                if (currentMode === 'random') {
+                if (currentMode === 'random') { // ランダムモードの場合のみ全体の正答数をカウント
                     correctAnswers++;
                 }
             } else {
                 resultDiv.textContent = `不正解です。正解は ${correctAnswer} です。`;
                 resultDiv.className = 'result incorrect';
-                // 不正解の場合、間違えた問題リストに追加（重複は避ける）
-                if (!incorrectQuestions.includes(currentQuestion)) {
+                if (currentMode === 'random' && !incorrectQuestions.find(q => q.問題番号 === currentQuestion.問題番号 && q.年度 === currentQuestion.年度)) { // ランダムモードで、まだリストになければ追加
                     incorrectQuestions.push(currentQuestion);
+                } else if (currentMode === 'quiz') { // 年度別学習の場合、間違えたらその場でincorrectQuestionsに追加（ただし、このリストは主にランダムモードの終了時に使う想定）
+                     // incorrectQuestions.push(currentQuestion); // 必要であれば年度別でも記録
                 }
             }
 
-            // 正解と不正解の選択肢にスタイルを適用
+            // 正解・不正解のスタイル適用
             optionsLabels.forEach(label => {
                  const radio = label.querySelector('input[type="radio"]');
                  if (radio) {
                       const optionValue = radio.value;
                       if (optionValue === correctAnswer) {
-                           label.classList.add('correct-answer'); // 正解を強調
-                      } else if (radio.checked) { // 選択した不正解の選択肢
-                           label.classList.add('incorrect-answer'); // 不正解を強調
+                          label.classList.add('correct-answer');
+                      }
+                      // ユーザーが選択した不正解の選択肢にスタイルを適用
+                      if (optionValue === selectedValue && selectedValue !== correctAnswer) {
+                          label.classList.add('incorrect-answer');
                       }
                  }
              });
 
-            // ランダム出題モードの場合は「次の問題へ」ボタンを表示
+            // ボタン表示の制御
             if (currentMode === 'random') {
-                nextButton.style.display = 'block';
-            } else if (currentMode === 'quiz') { // 年度別学習モードで個別問題表示の場合
-                 backToListButton.style.display = 'inline-block'; // 「問題一覧に戻る」ボタンを表示
+                if (currentQuestionIndex < questions.length - 1) { // まだ次の問題がある場合
+                    nextButton.textContent = '次の問題へ';
+                    nextButton.style.display = 'block';
+                } else { // ランダムモードの最後の問題の場合
+                    nextButton.textContent = '結果を見る';
+                    nextButton.style.display = 'block';
+                }
+            } else if (currentMode === 'quiz') { // 年度別学習モードの場合
+                 backToListButton.style.display = 'inline-block'; // 「問題一覧に戻る」を表示
             }
         }
 
 
         // 間違えた問題一覧を表示する関数
         function displayIncorrectQuestions() {
-            if (!incorrectListContainer || !quizEndMessage || !resetButton) return; // 要素の存在確認
+            if (!incorrectListContainer || !quizEndMessage || !resetButton) return;
 
-            incorrectListContainer.innerHTML = ''; // 前回の表示をクリア
+            incorrectListContainer.innerHTML = '';
 
             if (incorrectQuestions.length > 0) {
                 const title = document.createElement('h3');
@@ -6671,19 +6766,20 @@
 
                 incorrectQuestions.forEach((question, index) => {
                     const li = document.createElement('li');
-                     // 問題のタイトルを表示（簡潔に）
-                     // 問題番号の前に "問" を付けないように修正
                      li.innerHTML = `<strong>${question.年度} ${question.問題番号}</strong>`;
-                    // クリックイベントリスナーを追加
                     li.addEventListener('click', () => {
-                        loadSpecificQuestion(question); // クリックされた問題のオブジェクトを渡す
+                        // currentMode = 'end'; // 間違えた問題レビューモードであることを示す
+                        // loadSpecificQuestion を呼ぶ前に、その問題が属していた元の questions 配列と index を特定する必要がある。
+                        // しかし、incorrectQuestions には問題オブジェクトのコピー(または参照)しかないので、
+                        // ここでは単純に question オブジェクトを渡す。
+                        // loadSpecificQuestion 側で、この question オブジェクトの解答履歴 (userChoice, isCorrect) を見て表示を復元する。
+                        loadSpecificQuestion(question);
                     });
                     ul.appendChild(li);
                 });
 
                 incorrectListContainer.appendChild(ul);
             } else {
-                // 間違えた問題がなかった場合のメッセージ
                 const message = document.createElement('p');
                 message.className = 'text-lg text-green-700';
                 message.textContent = '素晴らしい！全問正解です！';
@@ -6691,41 +6787,51 @@
             }
         }
 
-        // 問題一覧に戻る関数 (年度別学習モードから問題一覧へ戻る)
+        // 問題一覧に戻る関数
         function returnToIncorrectList() {
-             if (!questionContainer || !quizEndMessage || !nextButton || !backToListButton || !resetButton || !progressBar || !progressBar.parentElement || !optionsContainer) return; // 要素の存在確認
+             if (!questionContainer || !quizEndMessage || !nextButton || !backToListButton || !resetButton || !progressBar || !progressBar.parentElement || !optionsContainer) return;
 
-            // 現在表示している年度の問題リストを再度表示
-            const currentYear = questions[0]?.年度; // 現在表示中の問題リストの年度を取得
-            if (currentYear) {
-                showQuestionList(currentYear);
+            if (currentMode === 'quiz') { // 年度別学習中の問題から問題一覧へ
+                const currentYear = questions[0]?.年度; // questions は年度別問題の配列のはず
+                if (currentYear) {
+                    showQuestionList(currentYear);
+                } else {
+                    showYearSelection(); // 念のため
+                }
+            } else if (currentMode === 'end') { // 間違えた問題のレビュー画面から、クイズ終了画面へ戻る
+                // currentMode は 'end' のまま
+                showScreen('end'); // クイズ終了画面を再表示
+                if (finalScore) finalScore.textContent = `正答数: ${correctAnswers} / ${numberOfQuestionsToAsk}`; // ランダムクイズの時の問題数
+                if (resetButton) resetButton.style.display = 'block';
+                displayIncorrectQuestions(); // 間違えた問題リストを再表示
             } else {
-                // 年度情報が取得できない場合は年度選択画面に戻る
-                showYearSelection();
+                showModeSelection(); // それ以外はモード選択へ
             }
 
-             // ボタンの状態をリセット
              nextButton.style.display = 'none';
              backToListButton.style.display = 'none';
-             resetButton.style.display = 'none';
-             progressBar.parentElement.style.display = 'none';
+             if (progressBar.parentElement) progressBar.parentElement.style.display = 'none';
              optionsContainer.classList.remove('answered');
-             resultDiv.textContent = ''; // 結果表示もクリア
+             resultDiv.textContent = '';
              resultDiv.className = 'result';
         }
 
         // モード選択画面に戻る関数
         function showModeSelection() {
-            // 状態をリセット
+            currentMode = 'select';
             questions = [];
             currentQuestionIndex = -1;
             correctAnswers = 0;
             incorrectQuestions = [];
             answered = false;
-             if (optionsContainer) optionsContainer.classList.remove('answered');
+            if (optionsContainer) optionsContainer.classList.remove('answered');
+            // 全てのクイズデータの解答履歴をクリア
+            allQuizData.forEach(q => {
+                delete q.userChoice;
+                delete q.isCorrect;
+            });
 
             showScreen('select');
-             // 各コンテナの内容をクリア
              if (yearButtonsContainer) yearButtonsContainer.innerHTML = '';
              if (questionsForYearContainer) questionsForYearContainer.innerHTML = '';
              if (incorrectListContainer) incorrectListContainer.innerHTML = '';
@@ -6733,7 +6839,6 @@
              if (finalScore) finalScore.textContent = '';
 
 
-             // ボタンの表示をリセット
              if (nextButton) nextButton.style.display = 'none';
              if (backToListButton) backToListButton.style.display = 'none';
              if (resetButton) resetButton.style.display = 'none';
@@ -6742,17 +6847,27 @@
 
 
         function resetQuiz() {
-             // ランダム出題モードでのリセットは、再度ランダム出題を開始
-             if (currentMode === 'end' && questions.length > 0) { // クイズ終了画面からのリセット
-                 startRandomQuiz();
-             } else { // その他の状態からのリセット（基本的にはモード選択に戻る）
+             // クイズ終了画面 (currentMode === 'end') からの「もう一度挑戦する」
+             if (currentMode === 'end') {
+                 // incorrectQuestions に何か入っていれば、それはランダムクイズの結果の可能性が高い
+                 // numberOfQuestionsToAsk と questions.length を比較しても良い
+                 if (incorrectQuestions.length > 0 || (questions.length === numberOfQuestionsToAsk && numberOfQuestionsToAsk > 0) ) {
+                    startRandomQuiz(); // ランダムクイズを再開
+                 } else { // 年度別学習の単一問題表示後などの可能性も考慮し、モード選択へ
+                    showModeSelection();
+                 }
+             } else { // それ以外の画面からのリセットはモード選択へ
                  showModeSelection();
              }
         }
 
-        // ページ読み込み完了後に初期画面を表示
         document.addEventListener('DOMContentLoaded', (event) => {
-            showScreen('select');
+            // 初期化時に allQuizData から解答情報を削除しておく
+            allQuizData.forEach(q => {
+                delete q.userChoice;
+                delete q.isCorrect;
+            });
+            showModeSelection();
         });
     </script>
 
