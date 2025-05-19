@@ -301,13 +301,13 @@
 
         #explanation-container h4 {
             font-size: 1.125rem; /* text-lg */
-            font-weight: 600;      /* font-semibold */
-            color: #1e40af;        /* blue-700 */
+            font-weight: 600;     /* font-semibold */
+            color: #1e40af;       /* blue-700 */
             margin-bottom: 0.5rem;  /* mb-2 */
         }
 
         #explanation-text {
-            color: #4b5563;        /* gray-600 */
+            color: #4b5563;       /* gray-600 */
             font-size: 0.9rem;    /* text-sm */
             line-height: 1.5rem;
         }
@@ -386,16 +386,16 @@
 
         // クイズの状態を管理するオブジェクト
         let quizState = {
-            currentMode: 'select',      // 現在表示している画面の種類 ('select', 'year_select', 'question_list', 'quiz', 'end')
+            currentMode: 'select',     // 現在表示している画面の種類 ('select', 'year_select', 'question_list', 'quiz', 'end')
             questionSource: null,      // 問題の出所を示す ('random', 'year', 'review')
-            questions: [],            // 現在のクイズセッションで使われる問題の配列
-            currentQuestionIndex: -1, // questions 配列内の現在の問題のインデックス
+            questions: [],             // 現在のクイズセッションで使われる問題の配列
+            currentQuestionIndex: -1,  // questions 配列内の現在の問題のインデックス
             currentQuestionObject: null, // 現在表示中の問題オブジェクトそのもの
-            correctAnswers: 0,          // ランダムクイズでの正答数
+            correctAnswers: 0,         // ランダムクイズでの正答数
             incorrectQuestions: [],    // ランダムクイズで間違えた問題のリスト
-            answered: false,          // 現在の問題が解答済みか (主にランダムクイズと年度別クイズで使用)
-            currentYear: null,        // 年度選択モードで選択された年度
-            previousScreenContext: {  // 「戻る」ボタンのための詳細なコンテキスト
+            answered: false,           // 現在の問題が解答済みか (主にランダムクイズと年度別クイズで使用)
+            currentYear: null,         // 年度選択モードで選択された年度
+            previousScreenContext: {   // 「戻る」ボタンのための詳細なコンテキスト
                 mode: 'select',
                 year: null,
                 source: null // どの種類のクイズの終了画面だったかなど
@@ -470,28 +470,28 @@
         }
 
         function loadQuizData() {
-          console.log("loadQuizData: Fetching quiz data...");
-          Promise.all([
-            fetch('problems.json').then(response => {
-              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-              return response.json();
-            }),
-            fetch('explanations.json').then(response => {
-              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-              return response.json();
+            console.log("loadQuizData: Fetching quiz data...");
+            Promise.all([
+                fetch('problems.json').then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                }),
+                fetch('explanations.json').then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+            ])
+            .then(([problemsData, explanationsData]) => {
+                allQuizData = problemsData;
+                allExplanations = explanationsData;
+                console.log("loadQuizData: Quiz and explanation data loaded successfully.");
+                initializeQuiz();
             })
-          ])
-          .then(([problemsData, explanationsData]) => {
-            allQuizData = problemsData;
-            allExplanations = explanationsData;
-            console.log("loadQuizData: Quiz and explanation data loaded successfully.");
-            initializeQuiz();
-          })
-          .catch(error => {
-            console.error('loadQuizData: Failed to load quiz data:', error);
-            if (domElements.quizContainer)
-              domElements.quizContainer.innerHTML = `<p class="text-red-500">問題データの読み込みに失敗しました。ファイルを確認してください。</p>`;
-          });
+            .catch(error => {
+                console.error('loadQuizData: Failed to load quiz data:', error);
+                if (domElements.quizContainer)
+                    domElements.quizContainer.innerHTML = `<p class="text-red-500">問題データの読み込みに失敗しました。ファイルを確認してください。</p>`;
+            });
         }
 
         function initializeQuiz() {
@@ -640,18 +640,20 @@
             displayQuestion(question);
         }
 
+        // -------------------- ここから修正 --------------------
         function displayQuestion(question) {
             console.log(`displayQuestion: Q ${question.年度}-${question.問題番号}. Source: '${quizState.questionSource}', Answered: ${quizState.answered}. PrevContext: ${JSON.stringify(quizState.previousScreenContext)}`);
+            const questionKey = `${question.年度}-${question.問題番号}`; // questionKey をここで定義 (applyAnswerStylesAndResultでも使うため)
+
             if (!question || !domElements.questionTitle /* ... */) { console.error("displayQuestion: Missing elements/question."); return; }
 
-            const questionKey = `${question.年度}-${question.問題番号}`;
             quizState.currentQuestionObject = question;
             domElements.optionsContainer.innerHTML = '';
             domElements.resultDiv.textContent = '';
             domElements.resultDiv.className = 'result';
             domElements.nextButton.style.display = 'none';
             domElements.backToPreviousScreenButton.style.display = 'none';
-            if (domElements.explanationContainer) domElements.explanationContainer.style.display = 'none'; // Ensure explanation is hidden initially
+            if (domElements.explanationContainer) domElements.explanationContainer.style.display = 'none'; // ★解説は初期状態で非表示
 
             if (quizState.questionSource === 'random') {
                 domElements.questionCountSpan.textContent = `${quizState.currentQuestionIndex + 1} / ${quizState.questions.length}`;
@@ -661,7 +663,7 @@
             }
             domElements.questionTitle.textContent = `${question.年度} ${question.問題番号}`;
 
-            // 問題文表示 (変更なし)
+            // 問題文表示
             if (question.問題項目) {
                 let itemsHtml = '<div class="question-items-container">';
                 if (question.問題文_original) itemsHtml += `<p class="mb-2">${question.問題文_original.replace(/\n/g, '<br>')}</p>`;
@@ -698,7 +700,7 @@
                     domElements.optionsContainer.appendChild(label);
 
                     input.disabled = disableOptions;
-                    if (disableOptions && question.userChoice && input.value === (index + 1).toString()) {
+                    if (disableOptions && question.userChoice && input.value === (index + 1).toString()) { // userChoice は文字列なので比較も文字列で
                         input.checked = true;
                     }
                     if (!disableOptions) {
@@ -707,20 +709,14 @@
                 });
             }
 
-            if (disableOptions) {
+            if (disableOptions) { // 解答済み、またはレビューモードの場合
                 if (question.hasOwnProperty('userChoice') && question.hasOwnProperty('正解')) {
                     applyAnswerStylesAndResult(question.userChoice, question.正解, question);
-                } else if (quizState.questionSource === 'review') {
+                } else if (quizState.questionSource === 'review') { // レビューモードでは userChoice がなくても正解を表示
                     applyAnswerStylesAndResult(null, question.正解, question);
                 }
             }
-            // Display explanation if available:
-            if (allExplanations[questionKey]) {
-                domElements.explanationText.innerHTML = allExplanations[questionKey].解説.replace(/\n/g, '<br>');
-                domElements.explanationContainer.style.display = 'block';
-            } else {
-                domElements.explanationContainer.style.display = 'none';
-            }
+            // ★解説の即時表示ロジックを削除 (applyAnswerStylesAndResult に移動)
 
             // ボタン表示制御
             if (quizState.questionSource === 'review') {
@@ -728,6 +724,8 @@
                 domElements.backToPreviousScreenButton.style.display = 'inline-block';
                 console.log("displayQuestion: 'クイズ終了に戻る' button is visible for review.");
             } else if (quizState.answered) {
+                // 解答済みの場合は applyAnswerStylesAndResult で解説が表示されるので、ボタン表示もそちらで制御されるか、
+                // または handleOptionSelect の最後で制御されている
                 if (quizState.questionSource === 'random') {
                     domElements.nextButton.style.display = 'block';
                     domElements.nextButton.textContent = (quizState.currentQuestionIndex < quizState.questions.length - 1) ? '次の問題へ' : '結果を見る';
@@ -741,6 +739,8 @@
                 }
             }
         }
+        // -------------------- ここまで修正 --------------------
+
 
         function loadNextQuestion() {
             console.log(`loadNextQuestion: Source: '${quizState.questionSource}', Index: ${quizState.currentQuestionIndex}, Total: ${quizState.questions.length}`);
@@ -821,6 +821,7 @@
             }
         }
 
+        // -------------------- ここから修正 --------------------
         function applyAnswerStylesAndResult(selectedValue, correctAnswer, questionObject) {
             if (!domElements.optionsContainer || !domElements.resultDiv || !domElements.explanationContainer || !domElements.explanationText) return;
 
@@ -847,20 +848,21 @@
             } else if (selectedValue) {
                 domElements.resultDiv.textContent = `不正解です。正解は ${correctAnswer} です。`;
                 domElements.resultDiv.className = 'result incorrect';
-            } else if (!selectedValue && correctAnswer) {
+            } else if (!selectedValue && correctAnswer) { // レビューモードなどで解答なしで正解表示する場合
                 domElements.resultDiv.textContent = `正解は ${correctAnswer} です。`;
-                domElements.resultDiv.className = 'result correct';
+                domElements.resultDiv.className = 'result correct'; // または適切なクラス
             }
 
-            // Display explanation if available:
+            // ★解答後に解説を表示するロジックをここに追加
             const questionKey = `${questionObject.年度}-${questionObject.問題番号}`;
             if (allExplanations[questionKey]) {
                 domElements.explanationText.innerHTML = allExplanations[questionKey].解説.replace(/\n/g, '<br>');
-                domElements.explanationContainer.style.display = 'block';
+                domElements.explanationContainer.style.display = 'block'; // 解答後に表示
             } else {
-                domElements.explanationContainer.style.display = 'none';
+                domElements.explanationContainer.style.display = 'none'; // 解説がない場合は非表示
             }
         }
+        // -------------------- ここまで修正 --------------------
 
         function handleNextButton() {
             console.log(`handleNextButton: Clicked. Source: '${quizState.questionSource}'.`);
